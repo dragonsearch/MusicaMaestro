@@ -1,0 +1,3 @@
+node_modules/*
+src/Data/token.json
+.env
