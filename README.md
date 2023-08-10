@@ -1,2 +1,2 @@
 # MusicaMaestro
-Discord music bot made on js.
+A discord music bot.
