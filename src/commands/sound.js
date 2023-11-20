@@ -6,7 +6,8 @@ const { createAudioPlayer,createAudioResource, AudioPlayerStatus, NoSubscriberBe
 const fs  = require('fs');
 const { Application, ApplicationCommand, ApplicationCommandOptionType, User } = require('discord.js');
 const { getAllInDir } = require('../utils/getAllInDir.js');
-const { UserNotInVoiceChannelError } = require('../errors/UserNotInVoiceChannelError.js');
+const UserNotInVoiceChannelError  = require('../errors/UserNotInVoiceChannelError.js');
+const { type } = require('os');
 
 function InVoiceChannel(interaction){
     if (interaction.member.guild.available) {
@@ -34,8 +35,8 @@ module.exports = {
             required: true,
         }],
     run: async (interaction) => {
-
-        if (!InVoiceChannel(interaction)) throw new UserNotInVoiceChannelException();
+        console.log(typeof UserNotInVoiceChannelError);
+        if (!InVoiceChannel(interaction)) throw new UserNotInVoiceChannelError('');
 
 
         let re = new RegExp('[/\/\\//]'); // No backslashes or forwardslashes allowed in file names
