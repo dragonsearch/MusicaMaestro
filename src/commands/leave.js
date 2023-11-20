@@ -10,7 +10,9 @@ module.exports = {
         if (interaction.member.guild.available) {
             if (interaction.member.voice.channelId){
                 const connection = getVoiceConnection(interaction.guild.id);
-                connection.destroy();
+                if (connection) {
+                    connection.destroy();
+                }
                 await interaction.reply({content:"Left, connection destroyed", ephemeral: true});
                 return;
             }else{
