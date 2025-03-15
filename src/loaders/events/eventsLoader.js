@@ -8,7 +8,7 @@ module.exports = (bot) =>{
     const {getAllInDir} = require('../../utils/getAllInDir.js')
 
     const {client} = bot
-    events = getAllInDir('src/events/','.js','events') // This uses the working directory as the root folder (where the bot is running)
+    events = getAllInDir('./events/','.js','events') // This uses the working directory as the root folder (where the bot is running)
     events.forEach( (file)=>
     {
         iscached(file)

@@ -26,7 +26,7 @@ module.exports = {
             name: "sound",
             description: "Sound to play",
             type: ApplicationCommandOptionType.String,
-            choices: getAllInDir('audio','.mp3','sounds').map(file => {
+            choices: getAllInDir('./audio','.mp3','sounds').map(file => {
                 return {
                     name: file,
                     value: file
