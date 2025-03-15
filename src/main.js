@@ -45,6 +45,4 @@ client.bot_loader(bot);
 
 sleepFor(10000); */
 //client.eventsLoader(bot)
-
-module.exports = bot;
 client.login(process.env.TOKEN);
