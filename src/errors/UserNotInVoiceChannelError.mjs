@@ -1,4 +1,4 @@
-const UserError = require('./UserError');
+import UserError from './UserError.mjs';
 
 class UserNotInVoiceChannelError extends UserError {
   constructor(message) {
@@ -7,4 +7,4 @@ class UserNotInVoiceChannelError extends UserError {
   }
 }
 
-module.exports = UserNotInVoiceChannelError;
+export default UserNotInVoiceChannelError;
