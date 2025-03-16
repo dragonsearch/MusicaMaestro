@@ -11,4 +11,4 @@ function triggerEvent (bot,event, ...args){
     }
 }
 
-module.exports = {triggerEvent}
+export  {triggerEvent}

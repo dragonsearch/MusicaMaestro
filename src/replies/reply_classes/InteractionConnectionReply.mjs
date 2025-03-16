@@ -65,4 +65,4 @@ class InteractionConnectionReply{
 
 }
 
-module.exports = InteractionConnectionReply
+export { InteractionConnectionReply};

@@ -1,4 +1,4 @@
-const { joinVoiceChannel, getVoiceConnection } = require('@discordjs/voice');
+import { joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
 
 
 class InteractionConnection{
@@ -54,4 +54,4 @@ class InteractionConnection{
 }
 
 
-module.exports = InteractionConnection
+export  default InteractionConnection;

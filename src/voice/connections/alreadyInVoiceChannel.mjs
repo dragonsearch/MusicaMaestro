@@ -1,3 +1,6 @@
+
+import { getVoiceConnection } from '@discordjs/voice';
+
 async function isAlreadyInVoiceChannel(interaction){
     const connection = getVoiceConnection(interaction.guild.id);
     if (connection){
@@ -8,4 +11,4 @@ async function isAlreadyInVoiceChannel(interaction){
     }
 }
 
-module.exports = isAlreadyInVoiceChannel
+export default isAlreadyInVoiceChannel;
