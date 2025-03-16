@@ -3,7 +3,7 @@
 module.exports = (bot) =>{
     const {initializeEvents} = require('./functions/initializeEvents.js')
     const discord = require('discord.js')
-    const {iscached} = require('./functions/iscached.js')
+    const {iscached} = require('../../utils/iscached.js')
 
     const {getAllInDir} = require('../../utils/getAllInDir.js')
 
@@ -11,7 +11,7 @@ module.exports = (bot) =>{
     events = getAllInDir('./events/','.js','events') // This uses the working directory as the root folder (where the bot is running)
     events.forEach( (file)=>
     {
-        iscached(file)
+        iscached(file,'events')
 
         const event = require(`../../events/${file}`)    
 
