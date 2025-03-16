@@ -1,7 +1,7 @@
 const {iscached} = require('../../../utils/iscached.js')
 function getSaveCommands(bot){
     const {getAllInDir} = require('../../../utils/getAllInDir.js')
-    commands = getAllInDir('./commands/','.js','commands') // This uses the working directory as the root folder (where the bot is running)
+    commands = getAllInDir('./src/commands/','.js','commands') // This uses the working directory as the root folder (where the bot is running)
     let commandslist = [];
     commands.forEach( (file)=>
     {   
