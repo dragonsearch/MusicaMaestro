@@ -1,0 +1,1 @@
+yt-dlp --skip-download --dump-single-json  -f bestaudio/best --audio-format 'opus' https://www.youtube.com/watch?v=SBQprWeOx8g&list=PLDMJ21uQ-Qs6MFZu0_4GpNYty8C_VZEWK&index=30 > out2.json 2>&1
