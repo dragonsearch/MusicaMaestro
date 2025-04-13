@@ -75,7 +75,14 @@ class Queue extends EventEmitter {
             }
         }
     }
-
+    stop() {
+        // clear the queue
+        this.items = [];
+        this.pointer = 0;
+        this.ended = true;
+        this.player.stop(true);
+        this.emit('queueEnd');
+    }
     skip(to) {
         if (this.isEmpty()) {
             this.emit('queueEnd');
