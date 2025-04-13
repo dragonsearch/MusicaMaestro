@@ -45,14 +45,8 @@ export async function run(interaction) {
         interaction.client.queues.set(interaction.guild.id, queue);
     }
     let extractor = new Yt_dlp_Extractor();
-    let items = [];
-    try{
-        items = await extractor.getItems(url);
-    } catch (error) {
-        console.log('Error:', error.message);
-        await interaction.reply({ content: 'Error: ' + error.message, ephemeral: true });
-        return;
-    }
+    let items = await extractor.getItems(url);
+    console.log(items);
     queue.enqueue(items);
     queue.emit('play');
     player.on('error', error => {

@@ -1,5 +1,5 @@
 # Use a lightweight Node.js base image.  Alpine is smaller than the full Ubuntu.
-FROM node:23-alpine
+FROM node:18-alpine
 
 # Set the working directory inside the container.  This is where your code will live.
 WORKDIR /app
