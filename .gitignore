@@ -2,3 +2,4 @@ node_modules/*
 src/Data/token.json
 .env
 *.mp3
+cookies.txt

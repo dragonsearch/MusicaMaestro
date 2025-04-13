@@ -1,4 +1,6 @@
 import { Client, IntentsBitField, Collection } from 'discord.js';
+import { getVoiceConnection, demuxProbe, createAudioPlayer, createAudioResource, AudioPlayerStatus, NoSubscriberBehavior, entersState, VoiceConnectionStatus,StreamType } from '@discordjs/voice';
+
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -21,9 +23,7 @@ let bot = {
     client: client,
     replier: replier
 };
-
-
-
+client.queues = new Collection();
 client.commands = new Collection();
 client.events = new Collection();
 
