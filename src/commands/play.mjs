@@ -1,19 +1,17 @@
-import InteractionConnection from '../voice/connections/InteractionConnection.mjs';
-import {InteractionConnectionReply} from '../replies/reply_classes/InteractionConnectionReply.mjs';
-import { getVoiceConnection, demuxProbe, createAudioPlayer, createAudioResource, AudioPlayerStatus, NoSubscriberBehavior, entersState, VoiceConnectionStatus,StreamType } from '@discordjs/voice';
-import { Application, ApplicationCommand, ApplicationCommandOptionType, User } from 'discord.js';
-import Queue from '../queue/queue.mjs';
-// import env
-import { env } from 'process';
+import InteractionConnection from "../voice/connections/InteractionConnection.mjs";
+import { InteractionConnectionReply } from "../replies/reply_classes/InteractionConnectionReply.mjs";
+import {
+  getVoiceConnection,
+  createAudioPlayer,
+  NoSubscriberBehavior,
+  entersState,
+  VoiceConnectionStatus,
+} from "@discordjs/voice";
+import { ApplicationCommandOptionType } from "discord.js";
+import Queue from "../queue/queue.mjs";
 
-import { Readable } from 'stream';
-import  Yt_dlp_Extractor  from '../extractor/Yt-dlp_Extractor.mjs';
-async function probeAndCreateResource(readableStream) {
-	const { stream, type } = await demuxProbe(readableStream);
-	return createAudioResource(stream, { inputType: type });
-}
-// CRUCIAL PART FOR EXTRACTING THE URL
-import youtubedl from 'youtube-dl-exec';
+import Yt_dlp_Extractor from "../extractor/Yt-dlp_Extractor.mjs";
+
 export const name = "play";
 export const description = "plays a video in a voice channel from a youtube link";
 export const options = [
