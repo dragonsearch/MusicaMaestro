@@ -13,16 +13,16 @@ import Queue from "../queue/queue.mjs";
 import Yt_dlp_Extractor from "../extractor/Yt-dlp_Extractor.mjs";
 
 export const name = "play";
-export const description = "plays a video in a voice channel from a youtube link";
+export const description =
+  "plays a video in a voice channel from a supported link";
 export const options = [
     {
         name: "yt_url",
         description: "Yt_url of the sound to download",
         type: ApplicationCommandOptionType.String,
         required: true,
-    }
+  },
 ];
-
 
 export async function run(interaction) {
     
