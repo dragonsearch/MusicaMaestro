@@ -56,6 +56,23 @@ export async function run(interaction) {
       await interaction.reply({ content: "No connection :(", ephemeral: true });
       return;
     }
+    //check if the player is already subscribed
+    // TODO: check if this approach is really correct.
+
+    // This is a key part that can lead to problems
+    //  It is important to always subscribe before, as the queue relies
+    // on the Idle state. If there are no subscribers,
+    // and the behaviour is to stop whenever there are no subscribers,
+    // the effect is that a loop happens. It tries to play the next,
+    // but it stops after doing that as there are no subscribers,
+    // which leads into playing again. Possible solution
+    // -> Check for suscribers on idle state change event
+    if (connection._state.subscription) {
+      console.log("Player already subscribed");
+    } else {
+      console.log("Player not subscribed");
+      connection.subscribe(player);
+    }
 
     let queue = interaction.client.queues.get(interaction.guild.id);
     if (!queue) {
