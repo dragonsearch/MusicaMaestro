@@ -36,6 +36,27 @@ export async function run(interaction) {
     },
   });
 
+  let connection = new InteractionConnection(interaction);
+  console.log("Creating connection");
+  let connected = await connection.createConnection();
+  console.log("Connection created");
+  console.log("Got voice connection");
+
+  if (connected) {
+    console.log("Playing audio");
+    const connection = getVoiceConnection(interaction.guild.id);
+    try {
+      await entersState(connection, VoiceConnectionStatus.Ready, 10000);
+      console.log("Connected: ");
+    } catch (error) {
+      console.log("Voice Connection not ready within 10s.", error);
+      return null;
+    }
+    if (!connection) {
+      await interaction.reply({ content: "No connection :(", ephemeral: true });
+      return;
+    }
+
     let queue = interaction.client.queues.get(interaction.guild.id);
     if (!queue) {
         queue = new Queue(player, null);
