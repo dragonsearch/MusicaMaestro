@@ -14,17 +14,20 @@ class InteractionConnection {
     this.connection = undefined;
   }
 
-    async createConnection(){
-        if (this.possible_to_join){
-            this.connection = joinVoiceChannel({
-                channelId: this.interaction.member.voice.channelId,
-                guildId: this.interaction.guild.id,
-                adapterCreator: this.interaction.guild.voiceAdapterCreator,
-            });
-            return true
-        }
-        return false
+  async createConnection() {
+    if (this.possible_to_join) {
+      this.connection = joinVoiceChannel({
+        channelId: this.interaction.member.voice.channelId,
+        guildId: this.interaction.guild.id,
+        adapterCreator: this.interaction.guild.voiceAdapterCreator,
+      });
+      return true;
+    } else if (this.InTheSameVoiceChannel()) {
+      // TODO: Review.
+      return true;
     }
+    return false;
+  }
 
   guildAvailable() {
     return this.interaction.member.guild.available;
