@@ -1,11 +1,13 @@
 export const name = "queue";
 export const description = "Shows the current queue";
-export const options = [
-];
+export const options = [];
 export async function run(interaction) {
     const queue = interaction.client.queues.get(interaction.guild.id);
     if (!queue || queue.isEmpty()) {
-        await interaction.reply({ content: 'The queue is empty!', ephemeral: true });
+    await interaction.reply({
+      content: "The queue is empty!",
+      ephemeral: true,
+    });
         return;
     }
      //Limit the queue list to 10 first entries
@@ -21,11 +23,11 @@ export async function run(interaction) {
     console.log(queueList);
 
     if (queueList.length > 2000) {
-        queueList = queueList.slice(0, 1980) + '...';
+    queueList = queueList.slice(0, 1980) + "...";
     }
     const embed = {
         color: 0x0099ff,
-        title: 'Current Queue',
+    title: "Current Queue",
         description: queueList,
     };
     // Add a footer with the number of items in the queue

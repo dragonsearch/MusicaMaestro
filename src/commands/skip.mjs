@@ -6,9 +6,13 @@ export async function run(interaction) {
     const queue = interaction.client.queues.get(interaction.guild.id);
 
     if (!queue || queue.isEmpty()) {
-        await interaction.reply({ content: 'There is no song to skip!', ephemeral: true });
+    await interaction.reply({
+      content: "There is no song to skip!",
+      ephemeral: true,
+    });
         return;
     }
-    queue.skip();
-    await interaction.reply({ content: 'Skipped the current song!', ephemeral: true });
-}
+  await interaction.reply({
+    content: "Skipped the current song!",
+    ephemeral: true,
+  });

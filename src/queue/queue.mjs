@@ -1,7 +1,7 @@
-import Yt_dlp_Extractor from '../extractor/Yt-dlp_Extractor.mjs';
-import EventEmitter from 'events';
-import { AudioPlayerStatus } from '@discordjs/voice';
-import {YtDlpExtractError} from '../extractor/Yt-dlp_Extractor.mjs';
+import Yt_dlp_Extractor from "../extractor/Yt-dlp_Extractor.mjs";
+import EventEmitter from "events";
+import { AudioPlayerStatus } from "@discordjs/voice";
+import { YtDlpExtractError } from "../extractor/Yt-dlp_Extractor.mjs";
 
 class Queue extends EventEmitter {
     constructor(player, urlExtractor=null, loop = false) {

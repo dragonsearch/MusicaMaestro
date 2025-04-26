@@ -16,26 +16,25 @@ export const name = "play";
 export const description =
   "plays a video in a voice channel from a supported link";
 export const options = [
-    {
-        name: "yt_url",
-        description: "Yt_url of the sound to download",
-        type: ApplicationCommandOptionType.String,
-        required: true,
+  {
+    name: "yt_url",
+    description: "Yt_url of the sound to download",
+    type: ApplicationCommandOptionType.String,
+    required: true,
   },
 ];
 
 export async function run(interaction) {
-    
     // Should do an instant reply so interaction doesn't time out
-    await interaction.reply({ content: 'Playing audio...', ephemeral: true });
-    let url = interaction.options.getString('yt_url');
-    let player = interaction.client.audio_player;
-    // This is not really needed, but just in case
-    player = createAudioPlayer({
-            behaviors: {
-                noSubscriber: NoSubscriberBehavior.Stop,
-            },
-    });
+  await interaction.reply({ content: "Playing audio...", ephemeral: true });
+  let url = interaction.options.getString("yt_url");
+  let player = interaction.client.audio_player;
+  // This is not really needed, but just in case
+  player = createAudioPlayer({
+    behaviors: {
+      noSubscriber: NoSubscriberBehavior.Stop,
+    },
+  });
 
     let queue = interaction.client.queues.get(interaction.guild.id);
     if (!queue) {
