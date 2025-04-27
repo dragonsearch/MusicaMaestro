@@ -36,14 +36,10 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
     }
   }
   async getStreamUrl(url) {
-    //TODO: RETHINK THIS. This should probably be handled outside of the
-    // queue and outside of this class, in the command.
     const urlType = this._validateUrl(url);
     if (urlType.type === "single") {
       return await this.getStreamSingleUrl(url);
     } else if (urlType.type === "playlist") {
-      // needs to be handled, unnecessary following the queue logic but
-      // could be useful
       return await this.getStreamSingleUrl(this.getPlaylistUrls(url)[0]);
     } else {
       throw new Error("Invalid URL");
@@ -55,7 +51,6 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
     const urlType = this._validateUrl(url);
     if (urlType.type === "single") {
       console.log("Single URL detected");
-      // TODO refactor
       let metadata = await this.getSingleMetadata(url);
       let item = {
         orig_url: url,

@@ -9,7 +9,6 @@ class Queue extends EventEmitter {
     this.loop = loop;
     this.player = player;
     this.items = [];
-    this.state = "idle";
     this.replaytries = 0;
     // Resource being played. Probably could make a class
     // that handles resources instead of hardcoding.
@@ -24,26 +23,11 @@ class Queue extends EventEmitter {
       }
     });
     this.player.on("error", (error) => {
-      //TODO: reset replay tries
-      //TODO: replay should ideally be as seamless as possible.
-      // highWaterMark option could help in yt-dlp or discordjs
       this.replay();
       console.log("Error:", error.message);
     });
-    //note: DISCORD PLAYER HANDLES THE DESTRUCTION OF THE STREAM WHENEVER
-    // A NEW AUDIO RESOURCE IS CALLED FROM THE IDLE STATE. This means
-    // there is really only 1 stream that could be left "online"
-    // even after the player has stopped, as whenever a new one "enters"
-    // the one before is cleaned up.
+
     this.player.on(AudioPlayerStatus.Idle, () => {
-      // This is a key part that can lead to problems
-      //  It is important to always subscribe before, as the queue relies
-      // on the Idle state. If there are no subscribers,
-      // and the behaviour is to stop whenever there are no subscribers,
-      // the effect is that a loop happens. It tries to play the next,
-      // but it stops after doing that as there are no subscribers,
-      // which leads into playing again. Possible solution
-      // -> Check for suscribers on idle state change event
       console.log("Player is idle! Event was fired");
       if (!this.paused && this.player.subscribers.length != 0) {
         if (this.resource && this.resource.ended) {
@@ -53,13 +37,6 @@ class Queue extends EventEmitter {
             this.playNext();
           }
         } else if (this.resource && !this.resource.ended) {
-          // This means either
-          // -> A potential error? (should re-check)
-          // -> A skipped song (not really, resource is ended
-          //  playnext is not called and relies on
-          // the above conditions)
-          // -> A paused queue
-          // On error or skipped ->
           this.playNext();
         }
       }
@@ -70,7 +47,6 @@ class Queue extends EventEmitter {
     }
   }
 
-  // Set the loop mode
   setLoop(loop) {
     this.loop = loop;
   }
@@ -80,16 +56,14 @@ class Queue extends EventEmitter {
     console.log("Queue end");
     this.pointer = 0;
     if (this.loop) {
-      this.state = "playing";
       this.pointer = 0;
       this.playNext();
     } else {
-      this.state = "ended";
+      return true;
     }
     return true;
   }
 
-  // Play the last item that was queued
   replay() {
     if (this.replaytries > 3) {
       this.skip();
@@ -103,14 +77,12 @@ class Queue extends EventEmitter {
     }
   }
   stop() {
-    // clear the queue
     this.items = [];
     this.pointer = 0;
     this.player.stop(true);
     this.emit("queueEnd");
   }
   skip(to) {
-    //Skips to the nth item
     if (to < 0) {
       to = 0;
     }
@@ -121,25 +93,16 @@ class Queue extends EventEmitter {
     this.pointer = to;
     console.log(`Skipping to item:${this.items[this.pointer].orig_url} 
             with pointer: ${this.pointer}`);
-    //OLD
-    // This state is set to skipping to avoid a recursive call to playNext
-    //  when the player is already playing. This should not cause side effects
-    //  because the state is set to 'playing' before stopping the player.
-    this.state = "skipping";
     this.player.stop(true);
-    //this.playNext();
   }
   _reachedEnd() {
-    // This function checks if the queue has reached the end
     if (this.pointer >= this.items.length) {
       return true;
     }
     return false;
   }
   _checkPlayConditions() {
-    //player status?
-    console.log(`player status: ${this.player.state.status}`);
-    // This shoulndt act if the player is already playing, that is handled
+    // This shouldn't act if the player is already playing, that is handled
     //  by other methods such as replay, skip, stop, etc.
     if (this.player.state.status === AudioPlayerStatus.Playing) {
       console.log("Player is already playing");
@@ -147,8 +110,7 @@ class Queue extends EventEmitter {
     }
     if (this.isEmpty()) {
       console.log("Queue is empty");
-      this._onQueueEmpty(); // Probably could be
-      // made an event so others can listen to it
+      this._onQueueEmpty();
       return false;
     }
     if (this._reachedEnd()) {
@@ -159,8 +121,6 @@ class Queue extends EventEmitter {
     return true;
   }
 
-  // Play the next item in the queue
-  //TODO: PROMISES
   async playNext() {
     console.log("Checking...");
     if (!this._checkPlayConditions()) {
@@ -169,21 +129,14 @@ class Queue extends EventEmitter {
     try {
       console.log("Extracting...");
       const url = this.items[this.pointer].orig_url;
-      //We should minimize the number of times we call yt-dlp
-      // as it is slow. Youtube URLs specifically have a pretty
-      // long expiration so we could cache most of the queue and
-      // whenever get an error or similar then we re-do for the
-      // next elements
+
       let resource = await this.urlExtractor.createAudioResource(url);
 
       console.log("Playing next item:", url);
       this.pointer++;
-      this.state = "playing";
       this.paused = true;
-      await this.player.stop(true);
-      //play will perform a stop leading into idle state
-      //  thus emiting the idle event. This should be handled
       this.resource = resource;
+      await this.player.stop(true);
       await this.player.play(resource);
       this.paused = false;
     } catch (error) {
@@ -215,7 +168,6 @@ class Queue extends EventEmitter {
     this.emit("added", item);
   }
 
-  // Peek at the first item without removing it
   peek() {
     if (this.isEmpty()) {
       throw new Error("Queue is empty");
@@ -223,12 +175,10 @@ class Queue extends EventEmitter {
     return this.items[this.pointer];
   }
 
-  // Check if the queue is empty
   isEmpty() {
     return this.items.length === 0;
   }
 
-  // Get the size of the queue
   size() {
     return this.items.length;
   }

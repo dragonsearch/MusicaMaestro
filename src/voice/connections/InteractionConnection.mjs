@@ -23,7 +23,6 @@ class InteractionConnection {
       });
       return true;
     } else if (this.InTheSameVoiceChannel()) {
-      // TODO: Review.
       return true;
     }
     return false;

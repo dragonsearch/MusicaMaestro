@@ -24,10 +24,8 @@ export async function run(interaction) {
     content: "Skipped the current song!",
     ephemeral: true,
   });
-  // Can this throw an error if the option is not a number?
   const to = interaction.options.getNumber("to");
   if (typeof to === "number" && !isNaN(to)) {
-    //Should the input check be doubled here? ie, its not <0, > length etc.
     queue.skip(to - 1);
   } else {
     queue.skip(queue.pointer);

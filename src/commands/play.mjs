@@ -29,7 +29,6 @@ export async function run(interaction) {
   await interaction.reply({ content: "Playing audio...", ephemeral: true });
   let url = interaction.options.getString("yt_url");
   let player = interaction.client.audio_player;
-  // This is not really needed, but just in case
   player = createAudioPlayer({
     behaviors: {
       noSubscriber: NoSubscriberBehavior.Stop,
@@ -56,17 +55,7 @@ export async function run(interaction) {
       await interaction.reply({ content: "No connection :(", ephemeral: true });
       return;
     }
-    //check if the player is already subscribed
-    // TODO: check if this approach is really correct.
 
-    // This is a key part that can lead to problems
-    //  It is important to always subscribe before, as the queue relies
-    // on the Idle state. If there are no subscribers,
-    // and the behaviour is to stop whenever there are no subscribers,
-    // the effect is that a loop happens. It tries to play the next,
-    // but it stops after doing that as there are no subscribers,
-    // which leads into playing again. Possible solution
-    // -> Check for suscribers on idle state change event
     if (connection._state.subscription) {
       console.log("Player already subscribed");
     } else {

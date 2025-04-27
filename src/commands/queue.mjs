@@ -32,7 +32,6 @@ export async function run(interaction) {
   });
 
   collector.on("collect", async (buttonInteraction) => {
-    // TODO: optimize code and abstract
     let reply_options = null;
     if (buttonInteraction.customId === "queue_next") {
       let start = Math.min(queue.items.length - 10, view_start_pointer + 10);
@@ -64,7 +63,6 @@ export async function run(interaction) {
 }
 function createQueueMessage(queue, start, end) {
   let queueList = queue.items.slice(start, end);
-  //let queueList = queue.items.slice(0, 10);
   //Parse the queue metadata to an embed with links
   queueList = queueList
     .map((item, index) => {
