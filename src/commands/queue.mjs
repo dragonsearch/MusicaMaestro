@@ -75,7 +75,6 @@ function createQueueMessage(queue, start, end) {
       return `${start + index + 1}. [${item.metadata.title}](${item.orig_url})`;
     })
     .join("\n");
-  console.log(queueList);
 
   if (queueList.length > 2000) {
     queueList = queueList.slice(0, 1980) + "...";

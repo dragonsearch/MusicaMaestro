@@ -1,6 +1,6 @@
 import youtubedl from "youtube-dl-exec";
 import { demuxProbe, createAudioResource } from "@discordjs/voice";
-
+import { logger } from "../utils/logger/logger.mjs";
 export class YtDlpExtractError extends Error {
   constructor(message, url) {
     super(message);
@@ -47,10 +47,10 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
   }
 
   async getItems(url) {
-    console.log("Getting URLs from:", url);
+    logger.debug("Getting URLs from:", url);
     const urlType = this._validateUrl(url);
     if (urlType.type === "single") {
-      console.log("Single URL detected");
+      logger.debug("Single URL detected");
       let metadata = await this.getSingleMetadata(url);
       let item = {
         orig_url: url,
@@ -58,7 +58,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
       };
       return [item];
     } else if (urlType.type === "playlist") {
-      console.log("Playlist URL detected");
+      logger.debug("Getting playlist metadata");
       let metadata = await this.getPlaylistMetadata(url);
       let items = this.getPlaylistItems(metadata);
       return items;
@@ -67,13 +67,13 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
     }
   }
   async getMetadata(url) {
-    console.log("Getting metadata from:", url);
+    logger.debug("Getting metadata from:", url);
     const urlType = this._validateUrl(url);
     if (urlType.type === "single") {
-      console.log("Single URL detected");
+      logger.debug("Single URL detected");
       return await this.getSingleMetadata(url);
     } else if (urlType.type === "playlist") {
-      console.log("Playlist URL detected");
+      logger.debug("Playlist URL detected");
       return await this.getPlaylistMetadata(url);
     } else {
       throw new Error("Invalid URL");
@@ -85,7 +85,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
       let resource = await youtubedl(url, this.options);
       return resource;
     } catch (err) {
-      console.error("Error getting metadata:", err);
+      logger.error("Error getting metadata:", err);
       throw new YtDlpExtractError("Failed to extract metadata", url);
     }
   }
@@ -96,7 +96,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
       let resource = await youtubedl(url, this.options);
       return resource.requested_downloads[0].url;
     } catch (err) {
-      console.error("Error getting stream URL:", err);
+      logger.error("Error getting stream URL:", err);
       throw new YtDlpExtractError("Failed to extract stream URL", url);
     }
   }
@@ -144,7 +144,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
   }
   // Method to create a stream from the URL
   createStream(url) {
-    console.log("Creating stream from URL:", url);
+    logger.debug("Creating stream from URL:", url);
     return fetch(url).then((r) => Readable.fromWeb(r.body));
   }
   async createAudioResource(url) {

@@ -7,11 +7,12 @@ import {
   entersState,
   VoiceConnectionStatus,
 } from "@discordjs/voice";
+
 import { ApplicationCommandOptionType } from "discord.js";
 import Queue from "../queue/queue.mjs";
 
 import Yt_dlp_Extractor from "../extractor/Yt-dlp_Extractor.mjs";
-
+import { logger } from "../utils/logger/logger.mjs";
 export const name = "play";
 export const description =
   "plays a video in a voice channel from a supported link";
@@ -36,30 +37,39 @@ export async function run(interaction) {
   });
 
   let connection = new InteractionConnection(interaction);
-  console.log("Creating connection");
+
+  logger.debug("Creating connection");
   let connected = await connection.createConnection();
-  console.log("Connection created");
-  console.log("Got voice connection");
 
   if (connected) {
-    console.log("Playing audio");
+    logger.debug("Connected to voice channel");
     const connection = getVoiceConnection(interaction.guild.id);
     try {
       await entersState(connection, VoiceConnectionStatus.Ready, 10000);
-      console.log("Connected: ");
+      logger.debug("Voice connection ready");
     } catch (error) {
-      console.log("Voice Connection not ready within 10s.", error);
+      logger.debug("Voice Connection not ready within 10s.", error);
+      await interaction.followUp({
+        content: "Voice Connection not ready within 10s.",
+        ephemeral: true,
+      });
       return null;
     }
     if (!connection) {
-      await interaction.reply({ content: "No connection :(", ephemeral: true });
+      logger.debug(
+        `No connection to voice channel for ${interaction.guild.id}`
+      );
+      await interaction.followUp({
+        content: "No connection to voice channel",
+        ephemeral: true,
+      });
       return;
     }
 
     if (connection._state.subscription) {
-      console.log("Player already subscribed");
+      logger.debug("Player already subscribed");
     } else {
-      console.log("Player not subscribed");
+      logger.debug("Player not subscribed");
       connection.subscribe(player);
     }
 
@@ -72,11 +82,12 @@ export async function run(interaction) {
     let items = [];
     try {
       items = await extractor.getItems(url);
-      console.log("queueing");
+      logger.debug("Items length:", items.length);
+      logger.debug("Queueing items");
       queue.enqueue(items);
       queue.emit("play");
     } catch (error) {
-      console.log("Error:", error.message);
+      logger.debug("Error:", error.message);
       await interaction.followUp({
         content: "Error: " + error.message,
         ephemeral: true,

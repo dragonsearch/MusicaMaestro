@@ -2,7 +2,7 @@ import Yt_dlp_Extractor from "../extractor/Yt-dlp_Extractor.mjs";
 import EventEmitter from "events";
 import { AudioPlayerStatus } from "@discordjs/voice";
 import { YtDlpExtractError } from "../extractor/Yt-dlp_Extractor.mjs";
-
+import { logger } from "../utils/logger/logger.mjs";
 class Queue extends EventEmitter {
   constructor(player, urlExtractor = null, loop = false) {
     super();
@@ -15,32 +15,15 @@ class Queue extends EventEmitter {
     this.resource = null;
     this.on("play", () => {
       // get player status
-      console.log("Queue starting");
-      console.log(this.player._state);
-      if (this.player.state.status === AudioPlayerStatus.Idle) {
-        console.log("Queue start");
-        this.playNext();
-      }
+      logger.info("Queue initializing");
+      this.playNext();
     });
     this.player.on("error", (error) => {
       this.replay();
-      console.log("Error:", error.message);
+      logger.error("Error:", error.message);
     });
 
-    this.player.on(AudioPlayerStatus.Idle, () => {
-      console.log("Player is idle! Event was fired");
-      if (!this.paused && this.player.subscribers.length != 0) {
-        if (this.resource && this.resource.ended) {
-          if (this._reachedEnd()) {
-            this._onQueueEnd();
-          } else {
-            this.playNext();
-          }
-        } else if (this.resource && !this.resource.ended) {
-          this.playNext();
-        }
-      }
-    });
+    this.player.on(AudioPlayerStatus.Idle, this._onIdle.bind(this));
     this.pointer = 0;
     if (!urlExtractor) {
       this.urlExtractor = new Yt_dlp_Extractor();
@@ -53,7 +36,7 @@ class Queue extends EventEmitter {
 
   _onQueueEnd() {
     this.emit("queueEnd");
-    console.log("Queue end");
+    logger.info("Queue end");
     this.pointer = 0;
     if (this.loop) {
       this.pointer = 0;
@@ -91,8 +74,10 @@ class Queue extends EventEmitter {
       to = this.items.length - 1;
     }
     this.pointer = to;
-    console.log(`Skipping to item:${this.items[this.pointer].orig_url} 
-            with pointer: ${this.pointer}`);
+    logger.info(
+      `Skipping to item:${this.items[this.pointer].orig_url}
+            with pointer: ${this.pointer}`
+    );
     this.player.stop(true);
   }
   _reachedEnd() {
@@ -105,16 +90,16 @@ class Queue extends EventEmitter {
     // This shouldn't act if the player is already playing, that is handled
     //  by other methods such as replay, skip, stop, etc.
     if (this.player.state.status === AudioPlayerStatus.Playing) {
-      console.log("Player is already playing");
+      logger.debug("Player is already playing");
       return false;
     }
     if (this.isEmpty()) {
-      console.log("Queue is empty");
+      logger.debug("Queue is empty");
       this._onQueueEmpty();
       return false;
     }
     if (this._reachedEnd()) {
-      console.log("Reached end of queue");
+      logger.debug("Reached end of queue");
       this._onQueueEnd();
       return false;
     }
@@ -122,17 +107,17 @@ class Queue extends EventEmitter {
   }
 
   async playNext() {
-    console.log("Checking...");
+    logger.debug("Checking play conditions");
     if (!this._checkPlayConditions()) {
       return;
     }
     try {
-      console.log("Extracting...");
+      logger.debug("Extracting URL");
       const url = this.items[this.pointer].orig_url;
 
       let resource = await this.urlExtractor.createAudioResource(url);
 
-      console.log("Playing next item:", url);
+      logger.debug(`Playing next item: ${url} with pointer: ${this.pointer}`);
       this.pointer++;
       this.paused = true;
       this.resource = resource;
@@ -141,11 +126,11 @@ class Queue extends EventEmitter {
       this.paused = false;
     } catch (error) {
       if (error instanceof YtDlpExtractError) {
-        console.error("Error extracting URL:", error);
+        logger.error("Error extracting URL:", error);
         this.pointer++;
         this.playNext();
       } else {
-        console.error("Unexpected error:", error);
+        logger.error("Unexpected error:", error);
       }
     }
   }
@@ -181,6 +166,22 @@ class Queue extends EventEmitter {
 
   size() {
     return this.items.length;
+  }
+  _onIdle() {
+    {
+      logger.debug("Player is idle! Event was fired");
+      if (!this.paused && this.player.subscribers.length > 0) {
+        if (this.resource && this.resource.ended) {
+          if (this._reachedEnd()) {
+            this._onQueueEnd();
+          } else {
+            this.playNext();
+          }
+        } else if (this.resource && !this.resource.ended) {
+          this.playNext();
+        }
+      }
+    }
   }
 }
 
