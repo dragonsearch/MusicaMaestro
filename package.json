@@ -16,6 +16,8 @@
     "dotenv": "^16.4.7",
     "ffmpeg-static": "^5.2.0",
     "libsodium-wrappers": "^0.7.13",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
     "youtube-dl-exec": "^3.0.20"
   },
   "devDependencies": {
