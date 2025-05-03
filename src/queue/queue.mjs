@@ -148,7 +148,16 @@ class Queue extends EventEmitter {
       `Skipping to item:${this.items[this.pointer].orig_url}
             with pointer: ${this.pointer}`
     );
+    this._restartPlaying();
+  }
+  _restartPlaying() {
+    if (this.queueState.status === "playing") {
+      if (this.player.state.status === AudioPlayerStatus.Playing) {
     this.player.stop(true);
+      } else if (this.player.state.status === AudioPlayerStatus.Idle) {
+        this._onIdle();
+      }
+    }
   }
   _reachedEnd() {
     if (this.loop.enabled) {
