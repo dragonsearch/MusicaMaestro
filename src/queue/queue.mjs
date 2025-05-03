@@ -4,7 +4,11 @@ import { AudioPlayerStatus } from "@discordjs/voice";
 import { YtDlpExtractError } from "../extractor/Yt-dlp_Extractor.mjs";
 import { logger } from "../utils/logger/logger.mjs";
 class Queue extends EventEmitter {
-  constructor(player, urlExtractor = null, loop = false) {
+  constructor(
+    player,
+    urlExtractor = null,
+    loop = { enabled: false, mode: null }
+  ) {
     super();
     this.loop = loop;
     this.player = player;
@@ -49,11 +53,57 @@ class Queue extends EventEmitter {
       this.urlExtractor = new Yt_dlp_Extractor();
     }
   }
-
-  setLoop(loop) {
-    this.loop = loop;
+  set pointer(newValue) {
+    // Using this approach of setting the pointer differently based on conditions
+    //  allows us to handle the loop, replay, skip and idle
+    // in a single place, thus minimizing the amount of code needed to handle
+    // these events, less prone to errors and reducing the semantics of each function
+    const isCurrentLoop = this.loop.enabled && this.loop.mode === "current";
+    const isPlaylistLoop = this.loop.enabled && this.loop.mode === "playlist";
+    const isCurrentLoopSkipped = this.queueState.skipped && isCurrentLoop;
+    if (this.queueState.replayed) {
+      // If the queue was replayed, we need to set the pointer to the
+      // current song.
+      this._pointer = this.currentIndex;
+      this.queueState.replayed = false;
+      return;
+    }
+    if (isCurrentLoop) {
+      if (!this.queueState.skipped) {
+        // No change needed, it is following the current song.
+        return;
+      }
+    }
+    if (this.isEmpty()) {
+      this._pointer = 0;
+      return;
+    }
+    if (newValue < 0) {
+      this._pointer = 0;
+      return;
+    }
+    if (newValue >= this.items.length) {
+      if (isPlaylistLoop || isCurrentLoopSkipped) {
+        newValue = 0;
+      } else {
+        newValue = this.items.length - 1;
+      }
+    }
+    this._pointer = newValue;
   }
-
+  get pointer() {
+    return this._pointer;
+  }
+  setLoopMode(mode) {
+    // playlist, current, null
+    this.loop.mode = mode;
+  }
+  toggleLoop() {
+    this.loop.enabled = true;
+  }
+  disableLoop() {
+    this.loop.enabled = false;
+  }
   _onQueueEnd() {
     this.emit("queueEnd");
     logger.info("Queue end");
@@ -66,15 +116,14 @@ class Queue extends EventEmitter {
 
   replay() {
     if (this.replaytries > 3) {
+      this.replaytries = 0;
       this.skip();
       return;
     } else {
       this.queueState.replayed = true;
       this.pointer--;
-      if (this.pointer < 0) {
-        this.pointer = 0;
-      }
-      this.player.stop();
+      this.replaytries++;
+      this._restartPlaying();
     }
   }
   stop() {
@@ -87,6 +136,7 @@ class Queue extends EventEmitter {
       errored: false,
     };
   }
+
   skip(to) {
     if (to < 0) {
       to = 0;
@@ -145,6 +195,7 @@ class Queue extends EventEmitter {
       let resource = await this.urlExtractor.createAudioResource(url);
 
       logger.debug(`Playing next item: ${url} with pointer: ${this.pointer}`);
+      this.currentIndex = this.pointer;
       this.pointer++;
       this.paused = true;
       this.resource = resource;
@@ -157,10 +208,9 @@ class Queue extends EventEmitter {
     } catch (error) {
       if (error instanceof YtDlpExtractError) {
         logger.error("Error extracting URL:", error);
-        this.pointer++;
-        this.playNext();
+        this.skip(this.pointer + 1);
       } else {
-        logger.error("Unexpected error:", error);
+        logger.error("Unexpected error:", error.message);
       }
     }
   }
