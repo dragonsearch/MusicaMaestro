@@ -248,15 +248,19 @@ class Queue extends EventEmitter {
     return this.items.length;
   }
   _onIdle() {
-    {
       logger.debug("Player is idle! Event was fired");
+    if (this.player.subscribers.length === 0) {
+      return;
+    }
+
     if (this.queueState.errored) {
       this.replay();
       return;
     }
+    logger.debug("Checking play conditions");
+    if (this._checkPlayConditions()) {
           this.playNext();
-        }
-      }
+      return;
     }
   }
 }
