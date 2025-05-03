@@ -205,7 +205,6 @@ class Queue extends EventEmitter {
       logger.debug(`Playing next item: ${url} with pointer: ${this.pointer}`);
       this.currentIndex = this.pointer;
       this.pointer++;
-      this.paused = true;
       this.resource = resource;
       await this.player.stop(true);
       await this.player.play(resource);
