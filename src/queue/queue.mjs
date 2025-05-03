@@ -137,10 +137,7 @@ class Queue extends EventEmitter {
     };
   }
 
-  skip(to) {
-    if (to < 0) {
-      to = 0;
-    }
+  skip(to = this.pointer) {
     this.queueState.skipped = true;
     this.pointer = to;
     this.queueState.skipped = false;
