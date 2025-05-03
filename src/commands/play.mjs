@@ -85,7 +85,7 @@ export async function run(interaction) {
       logger.debug("Items length:", items.length);
       logger.debug("Queueing items");
       queue.enqueue(items);
-      queue.emit("play");
+      queue.emit("start");
     } catch (error) {
       logger.debug("Error:", error.message);
       await interaction.followUp({
