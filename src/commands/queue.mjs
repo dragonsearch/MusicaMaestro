@@ -67,7 +67,7 @@ function createQueueMessage(queue, start, end) {
   queueList = queueList
     .map((item, index) => {
       // Display if the current item is playing
-      if (queue.pointer - 1 === start + index) {
+      if (queue.currentIndex === start + index) {
         return `Now playing -> **${start + index + 1}. [${
           item.metadata.title
         }](${item.orig_url})**`;
