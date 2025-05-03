@@ -150,7 +150,7 @@ class Queue extends EventEmitter {
   _restartPlaying() {
     if (this.queueState.status === "playing") {
       if (this.player.state.status === AudioPlayerStatus.Playing) {
-    this.player.stop(true);
+        this.player.stop(true);
       } else if (this.player.state.status === AudioPlayerStatus.Idle) {
         this._onIdle();
       }
@@ -259,7 +259,7 @@ class Queue extends EventEmitter {
     return;
   }
   _onIdle() {
-      logger.debug("Player is idle! Event was fired");
+    logger.debug("Player is idle! Event was fired");
     if (this.player.subscribers.length === 0) {
       return;
     }
@@ -270,7 +270,7 @@ class Queue extends EventEmitter {
     }
     logger.debug("Checking play conditions");
     if (this._checkPlayConditions()) {
-          this.playNext();
+      this.playNext();
       return;
     }
   }
