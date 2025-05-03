@@ -10,21 +10,41 @@ class Queue extends EventEmitter {
     this.player = player;
     this.items = [];
     this.replaytries = 0;
+    this.queueState = {
+      status: "idle",
+      errored: false,
+    };
     // Resource being played. Probably could make a class
     // that handles resources instead of hardcoding.
     this.resource = null;
-    this.on("play", () => {
-      // get player status
+    this.on("start", () => {
+      // This should only be called for starting an Idle queue.
+      if (this.queueState.status !== "idle") {
+        return;
+      }
       logger.info("Queue initializing");
+      this.queueState = {
+        status: "playing",
+        errored: false,
+      };
       this.playNext();
     });
+
     this.player.on("error", (error) => {
-      this.replay();
-      logger.error("Error:", error.message);
+      this.queueState.errored = true;
+      logger.error("Error:", error);
+      logger.error("Error message:", error.message);
+      //Print stream
     });
 
-    this.player.on(AudioPlayerStatus.Idle, this._onIdle.bind(this));
-    this.pointer = 0;
+    this.player.on("stateChange", (old, newstate) => {
+      if (newstate.status === AudioPlayerStatus.Idle) {
+        this._onIdle();
+      }
+    });
+    this.currentIndex = 0;
+    // Points to the next item to be played.
+    this._pointer = 0;
     if (!urlExtractor) {
       this.urlExtractor = new Yt_dlp_Extractor();
     }
@@ -37,13 +57,10 @@ class Queue extends EventEmitter {
   _onQueueEnd() {
     this.emit("queueEnd");
     logger.info("Queue end");
-    this.pointer = 0;
-    if (this.loop) {
-      this.pointer = 0;
-      this.playNext();
-    } else {
-      return true;
-    }
+    this.queueState = {
+      status: "idle",
+      errored: false,
+    };
     return true;
   }
 
@@ -52,6 +69,7 @@ class Queue extends EventEmitter {
       this.skip();
       return;
     } else {
+      this.queueState.replayed = true;
       this.pointer--;
       if (this.pointer < 0) {
         this.pointer = 0;
@@ -64,16 +82,18 @@ class Queue extends EventEmitter {
     this.pointer = 0;
     this.player.stop(true);
     this.emit("queueEnd");
+    this.queueState = {
+      status: "idle",
+      errored: false,
+    };
   }
   skip(to) {
     if (to < 0) {
       to = 0;
     }
-    if (to >= this.items.length) {
-      //This wont make the playlist able to stop using skip
-      to = this.items.length - 1;
-    }
+    this.queueState.skipped = true;
     this.pointer = to;
+    this.queueState.skipped = false;
     logger.info(
       `Skipping to item:${this.items[this.pointer].orig_url}
             with pointer: ${this.pointer}`
@@ -81,6 +101,9 @@ class Queue extends EventEmitter {
     this.player.stop(true);
   }
   _reachedEnd() {
+    if (this.loop.enabled) {
+      return false;
+    }
     if (this.pointer >= this.items.length) {
       return true;
     }
@@ -89,6 +112,10 @@ class Queue extends EventEmitter {
   _checkPlayConditions() {
     // This shouldn't act if the player is already playing, that is handled
     //  by other methods such as replay, skip, stop, etc.
+    if (this.queueState.status !== "playing") {
+      logger.debug("Queue is not playing songs");
+      return false;
+    }
     if (this.player.state.status === AudioPlayerStatus.Playing) {
       logger.debug("Player is already playing");
       return false;
@@ -123,7 +150,10 @@ class Queue extends EventEmitter {
       this.resource = resource;
       await this.player.stop(true);
       await this.player.play(resource);
-      this.paused = false;
+      this.state = {
+        status: "playing",
+        errored: false,
+      };
     } catch (error) {
       if (error instanceof YtDlpExtractError) {
         logger.error("Error extracting URL:", error);
@@ -170,14 +200,10 @@ class Queue extends EventEmitter {
   _onIdle() {
     {
       logger.debug("Player is idle! Event was fired");
-      if (!this.paused && this.player.subscribers.length > 0) {
-        if (this.resource && this.resource.ended) {
-          if (this._reachedEnd()) {
-            this._onQueueEnd();
-          } else {
-            this.playNext();
-          }
-        } else if (this.resource && !this.resource.ended) {
+    if (this.queueState.errored) {
+      this.replay();
+      return;
+    }
           this.playNext();
         }
       }
