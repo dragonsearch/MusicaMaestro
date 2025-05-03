@@ -247,6 +247,10 @@ class Queue extends EventEmitter {
   size() {
     return this.items.length;
   }
+  _onQueueEmpty() {
+    //TODO: When we add a remove from playlist we will need to handle queue empty
+    return;
+  }
   _onIdle() {
       logger.debug("Player is idle! Event was fired");
     if (this.player.subscribers.length === 0) {
