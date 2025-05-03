@@ -206,7 +206,6 @@ class Queue extends EventEmitter {
       this.currentIndex = this.pointer;
       this.pointer++;
       this.resource = resource;
-      await this.player.stop(true);
       await this.player.play(resource);
       this.state = {
         status: "playing",
