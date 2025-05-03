@@ -190,10 +190,12 @@ class Queue extends EventEmitter {
   }
 
   async playNext() {
-    logger.debug("Checking play conditions");
-    if (!this._checkPlayConditions()) {
-      return;
-    }
+    // The entry points to this function are limited to these:
+    // Calls from within this function, whenever there is an error loading the url
+    // _onIdle calls
+    // the play initial event
+    // Skip function whenever it is not onIdle
+
     try {
       logger.debug("Extracting URL");
       const url = this.items[this.pointer].orig_url;
