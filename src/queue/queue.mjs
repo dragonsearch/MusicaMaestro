@@ -13,10 +13,19 @@ class Queue extends EventEmitter {
     this.loop = loop;
     this.player = player;
     this.items = [];
-    this.replaytries = 0;
+
     this.queueState = {
       status: "idle",
+      // Keeps track of the error state, which is set to true on error
+      // and set to false when the queue is replayed
       errored: false,
+    };
+    //Keeps track of the tracks that were errored and retried to be played
+    // 3 times before skipping
+    this.queueState.replay = {
+      replaying: false,
+      last_replayed: null,
+      tries: 0,
     };
     // Resource being played. Probably could make a class
     // that handles resources instead of hardcoding.
@@ -28,6 +37,7 @@ class Queue extends EventEmitter {
       }
       logger.info("Queue initializing");
       this.queueState = {
+        ...this.queueState,
         status: "playing",
         errored: false,
       };
@@ -61,11 +71,10 @@ class Queue extends EventEmitter {
     const isCurrentLoop = this.loop.enabled && this.loop.mode === "current";
     const isPlaylistLoop = this.loop.enabled && this.loop.mode === "playlist";
     const isCurrentLoopSkipped = this.queueState.skipped && isCurrentLoop;
-    if (this.queueState.replayed) {
+    if (this.queueState.replay.replaying) {
       // If the queue was replayed, we need to set the pointer to the
       // current song.
       this._pointer = this.currentIndex;
-      this.queueState.replayed = false;
       return;
     }
     if (isCurrentLoop) {
@@ -108,21 +117,36 @@ class Queue extends EventEmitter {
     this.emit("queueEnd");
     logger.info("Queue end");
     this.queueState = {
+      ...this.queueState,
       status: "idle",
       errored: false,
     };
+    this.pointer = 0;
     return true;
   }
 
   replay() {
-    if (this.replaytries > 3) {
-      this.replaytries = 0;
+    if (this.queueState.last_replayed != this.currentIndex) {
+      // The replay feature is added by using a new state: replayed.
+      // We need a song-> n errors map.
+      // We should abstract functionality and refactor code into classes
+      // and methods on a later updater.
+      this.queueState.replay = {
+        replaying: true,
+        last_replayed: this.currentIndex,
+        tries: 0,
+      };
+    }
+    if (this.queueState.replay.tries > 3) {
+      this.queueState.replay.tries = 0;
+      this.queueState.replay.replaying = false;
       this.skip();
       return;
     } else {
-      this.queueState.replayed = true;
-      this.pointer--;
-      this.replaytries++;
+      this.pointer--; // This will set the pointer to the previous song
+      // because replaying is enabled, not because of the value of the pointer.
+      this.queueState.replay.tries++;
+      this.queueState.replay.replaying = true;
       this._restartPlaying();
     }
   }
@@ -142,7 +166,7 @@ class Queue extends EventEmitter {
     this.pointer = to;
     this.queueState.skipped = false;
     logger.info(
-      `Skipping to item:${this.items[this.pointer].orig_url}
+      `Skipping to item:
             with pointer: ${this.pointer}`
     );
     this._restartPlaying();
@@ -194,7 +218,6 @@ class Queue extends EventEmitter {
     // Calls from within this function, whenever there is an error loading the url
     // _onIdle calls
     // the play initial event
-    // Skip function whenever it is not onIdle
 
     try {
       logger.debug("Extracting URL");
@@ -207,10 +230,6 @@ class Queue extends EventEmitter {
       this.pointer++;
       this.resource = resource;
       await this.player.play(resource);
-      this.state = {
-        status: "playing",
-        errored: false,
-      };
     } catch (error) {
       if (error instanceof YtDlpExtractError) {
         logger.error("Error extracting URL:", error);
@@ -263,8 +282,11 @@ class Queue extends EventEmitter {
       return;
     }
 
-    if (this.queueState.errored) {
+    if (this.queueState.errored && !this.queueState.replay.replaying) {
+      logger.debug("Player errored, trying to replay");
       this.replay();
+      this.queueState.replay.replaying = false;
+      this.queueState.errored = false;
       return;
     }
     logger.debug("Checking play conditions");
