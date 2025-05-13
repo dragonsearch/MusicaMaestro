@@ -95,7 +95,8 @@ class Queue extends EventEmitter {
       if (isPlaylistLoop || isCurrentLoopSkipped) {
         newValue = 0;
       } else {
-        newValue = this.items.length - 1;
+        //Skipping to the end of the queue is also considered
+        newValue = this.items.length;
       }
     }
     this._pointer = newValue;
