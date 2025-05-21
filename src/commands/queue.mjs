@@ -19,11 +19,7 @@ export async function run(interaction) {
   //Limit the queue list, centering on the pointer
   let reply_options = createQueueMessage(queue, start, end);
   // REFACTOR: Add a thumbnail with the first item's thumbnail
-  if (queue.items[0].metadata.thumbnail) {
-    reply_options.embeds.thumbnail = {
-      url: queue.items[0].metadata.thumbnail,
-    };
-  }
+
   let response = await interaction.reply(reply_options);
 
   const collector = response.createMessageComponentCollector({
@@ -67,15 +63,16 @@ function createQueueMessage(queue, start, end) {
   queueList = queueList
     .map((item, index) => {
       // Display if the current item is playing
-      if (queue.pointer - 1 === start + index) {
+      if (queue.currentIndex === start + index) {
         return `Now playing -> **${start + index + 1}. [${
           item.metadata.title
-        }](${item.orig_url})**`;
+        }](${item.original_url})**`;
       }
-      return `${start + index + 1}. [${item.metadata.title}](${item.orig_url})`;
+      return `${start + index + 1}. [${item.metadata.title}](${
+        item.original_url
+      })`;
     })
     .join("\n");
-  console.log(queueList);
 
   if (queueList.length > 2000) {
     queueList = queueList.slice(0, 1980) + "...";
@@ -84,6 +81,9 @@ function createQueueMessage(queue, start, end) {
     color: 0x0099ff,
     title: "Current Queue",
     description: queueList,
+    thumbnail: {
+      url: queue.items[queue.currentIndex].metadata.thumbnails[0].url,
+    },
   };
   // Add a footer with the number of items in the queue
   embed.footer = {

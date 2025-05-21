@@ -1,79 +1,161 @@
-import Yt_dlp_Extractor from "../extractor/Yt-dlp_Extractor.mjs";
+import Yt_dlp_Extractor, {
+  InvalidStreamUrl,
+} from "../extractor/Yt-dlp_Extractor.mjs";
 import EventEmitter from "events";
 import { AudioPlayerStatus } from "@discordjs/voice";
 import { YtDlpExtractError } from "../extractor/Yt-dlp_Extractor.mjs";
-
+import { logger } from "../utils/logger/logger.mjs";
 class Queue extends EventEmitter {
-  constructor(player, urlExtractor = null, loop = false) {
+  constructor(
+    player,
+    urlExtractor = null,
+    loop = { enabled: false, mode: null }
+  ) {
     super();
     this.loop = loop;
     this.player = player;
     this.items = [];
-    this.replaytries = 0;
+
+    this.queueState = {
+      status: "idle",
+      // Keeps track of the error state, which is set to true on error
+      // and set to false when the queue is replayed
+      errored: false,
+    };
+    //Keeps track of the tracks that were errored and retried to be played
+    // 3 times before skipping
+    this.queueState.replay = {
+      replaying: false,
+      last_replayed: null,
+      tries: 0,
+    };
     // Resource being played. Probably could make a class
     // that handles resources instead of hardcoding.
     this.resource = null;
-    this.on("play", () => {
-      // get player status
-      console.log("Queue starting");
-      console.log(this.player._state);
-      if (this.player.state.status === AudioPlayerStatus.Idle) {
-        console.log("Queue start");
-        this.playNext();
-      }
-    });
+
     this.player.on("error", (error) => {
-      this.replay();
-      console.log("Error:", error.message);
+      this.queueState.errored = true;
+      logger.error("Error:", error);
+      logger.error("Error message:", error.message);
+      if (this.queueState.errored && !this.queueState.replay.replaying) {
+        logger.debug("Player errored, trying to replay");
+        this.replay();
+        this.queueState.replay.replaying = false;
+        this.queueState.errored = false;
+        return;
+      }
+      //Print stream
     });
 
-    this.player.on(AudioPlayerStatus.Idle, () => {
-      console.log("Player is idle! Event was fired");
-      if (!this.paused && this.player.subscribers.length != 0) {
-        if (this.resource && this.resource.ended) {
-          if (this._reachedEnd()) {
-            this._onQueueEnd();
-          } else {
-            this.playNext();
-          }
-        } else if (this.resource && !this.resource.ended) {
-          this.playNext();
-        }
+    this.player.on("stateChange", (old, newstate) => {
+      if (newstate.status === AudioPlayerStatus.Idle) {
+        this._onIdle();
       }
     });
-    this.pointer = 0;
+    this.currentIndex = 0;
+    // Points to the next item to be played.
+    this._pointer = 0;
     if (!urlExtractor) {
       this.urlExtractor = new Yt_dlp_Extractor();
+    } else {
+      this.urlExtractor = urlExtractor;
     }
+    this.urlExtractor.on("resolve", (item) => {
+      logger.debug(`Item resolved: ${item.original_url}`);
+      this.items.push(item);
+      if (this.queueState.status === "idle") {
+        this.queueState.status = "playing";
+        this._onIdle();
+      }
+    });
+  }
+  set pointer(newValue) {
+    // Using this approach of setting the pointer differently based on conditions
+    //  allows us to handle the loop, replay, skip and idle
+    // in a single place, thus minimizing the amount of code needed to handle
+    // these events, less prone to errors and reducing the semantics of each function
+    const isCurrentLoop = this.loop.enabled && this.loop.mode === "current";
+    const isPlaylistLoop = this.loop.enabled && this.loop.mode === "playlist";
+    const isCurrentLoopSkipped = this.queueState.skipped && isCurrentLoop;
+    if (this.queueState.replay.replaying) {
+      // If the queue was replayed, we need to set the pointer to the
+      // current song.
+      this._pointer = this.currentIndex;
+      return;
+    }
+    if (isCurrentLoop) {
+      if (!this.queueState.skipped) {
+        // No change needed, it is following the current song.
+        return;
+      }
+    }
+    if (this.isEmpty()) {
+      this._pointer = 0;
+      return;
+    }
+    if (newValue < 0) {
+      this._pointer = 0;
+      return;
+    }
+    if (newValue >= this.items.length) {
+      if (isPlaylistLoop || isCurrentLoopSkipped) {
+        newValue = 0;
+      } else {
+        //Skipping to the end of the queue is also considered
+        newValue = this.items.length;
+      }
+    }
+    this._pointer = newValue;
+  }
+  get pointer() {
+    return this._pointer;
   }
 
-  setLoop(loop) {
-    this.loop = loop;
+  setLoopMode(mode) {
+    // playlist, current, null
+    this.loop.mode = mode;
   }
-
+  toggleLoop() {
+    this.loop.enabled = true;
+  }
+  disableLoop() {
+    this.loop.enabled = false;
+  }
   _onQueueEnd() {
     this.emit("queueEnd");
-    console.log("Queue end");
+    logger.info("Queue end");
+    this.queueState = {
+      ...this.queueState,
+      status: "idle",
+      errored: false,
+    };
     this.pointer = 0;
-    if (this.loop) {
-      this.pointer = 0;
-      this.playNext();
-    } else {
-      return true;
-    }
     return true;
   }
 
   replay() {
-    if (this.replaytries > 3) {
+    if (this.queueState.last_replayed != this.currentIndex) {
+      // The replay feature is added by using a new state: replayed.
+      // We need a song-> n errors map.
+      // We should abstract functionality and refactor code into classes
+      // and methods on a later updater.
+      this.queueState.replay = {
+        replaying: true,
+        last_replayed: this.currentIndex,
+        tries: 0,
+      };
+    }
+    if (this.queueState.replay.tries > 3) {
+      this.queueState.replay.tries = 0;
+      this.queueState.replay.replaying = false;
       this.skip();
       return;
     } else {
-      this.pointer--;
-      if (this.pointer < 0) {
-        this.pointer = 0;
-      }
-      this.player.stop();
+      this.pointer--; // This will set the pointer to the previous song
+      // because replaying is enabled, not because of the value of the pointer.
+      this.queueState.replay.tries++;
+      this.queueState.replay.replaying = true;
+      this._restartPlaying();
     }
   }
   stop() {
@@ -81,21 +163,35 @@ class Queue extends EventEmitter {
     this.pointer = 0;
     this.player.stop(true);
     this.emit("queueEnd");
+    this.queueState = {
+      status: "idle",
+      errored: false,
+    };
   }
-  skip(to) {
-    if (to < 0) {
-      to = 0;
-    }
-    if (to >= this.items.length) {
-      //This wont make the playlist able to stop using skip
-      to = this.items.length - 1;
-    }
+
+  skip(to = this.pointer) {
+    this.queueState.skipped = true;
     this.pointer = to;
-    console.log(`Skipping to item:${this.items[this.pointer].orig_url} 
-            with pointer: ${this.pointer}`);
-    this.player.stop(true);
+    this.queueState.skipped = false;
+    logger.info(
+      `Skipping to item:
+            with pointer: ${this.pointer}`
+    );
+    this._restartPlaying();
+  }
+  _restartPlaying() {
+    if (this.queueState.status === "playing") {
+      if (this.player.state.status === AudioPlayerStatus.Playing) {
+        this.player.stop(true);
+      } else if (this.player.state.status === AudioPlayerStatus.Idle) {
+        this._onIdle();
+      }
+    }
   }
   _reachedEnd() {
+    if (this.loop.enabled) {
+      return false;
+    }
     if (this.pointer >= this.items.length) {
       return true;
     }
@@ -104,17 +200,21 @@ class Queue extends EventEmitter {
   _checkPlayConditions() {
     // This shouldn't act if the player is already playing, that is handled
     //  by other methods such as replay, skip, stop, etc.
+    if (this.queueState.status !== "playing") {
+      logger.debug("Queue is not playing songs");
+      return false;
+    }
     if (this.player.state.status === AudioPlayerStatus.Playing) {
-      console.log("Player is already playing");
+      logger.debug("Player is already playing");
       return false;
     }
     if (this.isEmpty()) {
-      console.log("Queue is empty");
+      logger.debug("Queue is empty");
       this._onQueueEmpty();
       return false;
     }
     if (this._reachedEnd()) {
-      console.log("Reached end of queue");
+      logger.debug("Reached end of queue");
       this._onQueueEnd();
       return false;
     }
@@ -122,52 +222,59 @@ class Queue extends EventEmitter {
   }
 
   async playNext() {
-    console.log("Checking...");
-    if (!this._checkPlayConditions()) {
-      return;
-    }
-    try {
-      console.log("Extracting...");
-      const url = this.items[this.pointer].orig_url;
+    // The entry points to this function are limited to these:
+    // Calls from within this function, whenever there is an error loading the url
+    // _onIdle calls
+    // the play initial event
 
+    try {
+      this.queueState;
+      let item = this.items[this.pointer];
+      const url = this.items[this.pointer].stream_url;
       let resource = await this.urlExtractor.createAudioResource(url);
 
-      console.log("Playing next item:", url);
+      logger.debug(
+        `Playing next item: ${item.original_url} with pointer: ${this.pointer}`
+      );
+      this.currentIndex = this.pointer;
       this.pointer++;
-      this.paused = true;
       this.resource = resource;
-      await this.player.stop(true);
       await this.player.play(resource);
-      this.paused = false;
     } catch (error) {
       if (error instanceof YtDlpExtractError) {
-        console.error("Error extracting URL:", error);
-        this.pointer++;
-        this.playNext();
+        logger.error("Error extracting URL");
+        this.skip(this.pointer + 1);
+      } else if (error instanceof InvalidStreamUrl) {
+        // This is kinda of a hack.
+        // We should handle this in a better way in a later update
+        this.queueState.status = "idle";
+        logger.error(`Invalid stream URL: ${error.message}`);
+        // TODO in a posterior update, handle the expired stream URL
+        // Request a new stream URL for the item and all the next items
+        // Remove the items from this point to the end from the queue and
+        //  add them to the end of the queue.
+        // For a seamless experience, we will need to handle the case where the
+        //  user uses the queue commandto play the next item and we just removed
+        //  the items from the queue, by using a copy of the items
+        //  as the display values.
+        let items_to_resolve = this.items.slice(
+          this.pointer,
+          this.items.length
+        );
+        this.items = this.items.slice(0, this.pointer);
+
+        this.urlExtractor._resolveItems(items_to_resolve);
       } else {
-        console.error("Unexpected error:", error);
+        //throw error;
+        logger.error(`Error playing next item: ${error.message}`);
       }
     }
   }
   // Add an item to the queue
   // Could be a single URL or an array of URLs
-  enqueue(items) {
-    if (Array.isArray(items)) {
-      for (const item of items) {
-        this._enqueueSingle(item);
-      }
-    } else {
-      this._enqueueSingle(items);
-    }
+  async enqueue(urls) {
+    this.urlExtractor.requestItems(urls);
   }
-  _enqueueSingle(item) {
-    if (this.items.length === 0) {
-      this.pointer = 0;
-    }
-    this.items.push(item);
-    this.emit("added", item);
-  }
-
   peek() {
     if (this.isEmpty()) {
       throw new Error("Queue is empty");
@@ -181,6 +288,22 @@ class Queue extends EventEmitter {
 
   size() {
     return this.items.length;
+  }
+  _onQueueEmpty() {
+    //TODO: When we add a remove from playlist we will need to handle queue empty
+    return;
+  }
+  _onIdle() {
+    logger.debug("Player is idle! Event was fired");
+    if (this.player.subscribers.length === 0) {
+      return;
+    }
+
+    logger.debug("Checking play conditions");
+    if (this._checkPlayConditions()) {
+      this.playNext();
+      return;
+    }
   }
 }
 

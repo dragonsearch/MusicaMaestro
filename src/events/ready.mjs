@@ -1,4 +1,5 @@
-export const name = "ready"
+export const name = "ready";
+import { logger } from "../utils/logger/logger.mjs";
 export async function run(bot) {
-    console.log('Logged in as ' + bot.client.user.tag)
+  logger.info("Logged in as " + bot.client.user.tag);
 }
