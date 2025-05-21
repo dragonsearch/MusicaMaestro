@@ -1,4 +1,6 @@
-import Yt_dlp_Extractor from "../extractor/Yt-dlp_Extractor.mjs";
+import Yt_dlp_Extractor, {
+  InvalidStreamUrl,
+} from "../extractor/Yt-dlp_Extractor.mjs";
 import EventEmitter from "events";
 import { AudioPlayerStatus } from "@discordjs/voice";
 import { YtDlpExtractError } from "../extractor/Yt-dlp_Extractor.mjs";
@@ -30,24 +32,18 @@ class Queue extends EventEmitter {
     // Resource being played. Probably could make a class
     // that handles resources instead of hardcoding.
     this.resource = null;
-    this.on("start", () => {
-      // This should only be called for starting an Idle queue.
-      if (this.queueState.status !== "idle") {
-        return;
-      }
-      logger.info("Queue initializing");
-      this.queueState = {
-        ...this.queueState,
-        status: "playing",
-        errored: false,
-      };
-      this.playNext();
-    });
 
     this.player.on("error", (error) => {
       this.queueState.errored = true;
       logger.error("Error:", error);
       logger.error("Error message:", error.message);
+      if (this.queueState.errored && !this.queueState.replay.replaying) {
+        logger.debug("Player errored, trying to replay");
+        this.replay();
+        this.queueState.replay.replaying = false;
+        this.queueState.errored = false;
+        return;
+      }
       //Print stream
     });
 
@@ -61,7 +57,17 @@ class Queue extends EventEmitter {
     this._pointer = 0;
     if (!urlExtractor) {
       this.urlExtractor = new Yt_dlp_Extractor();
+    } else {
+      this.urlExtractor = urlExtractor;
     }
+    this.urlExtractor.on("resolve", (item) => {
+      logger.debug(`Item resolved: ${item.original_url}`);
+      this.items.push(item);
+      if (this.queueState.status === "idle") {
+        this.queueState.status = "playing";
+        this._onIdle();
+      }
+    });
   }
   set pointer(newValue) {
     // Using this approach of setting the pointer differently based on conditions
@@ -104,6 +110,7 @@ class Queue extends EventEmitter {
   get pointer() {
     return this._pointer;
   }
+
   setLoopMode(mode) {
     // playlist, current, null
     this.loop.mode = mode;
@@ -221,44 +228,53 @@ class Queue extends EventEmitter {
     // the play initial event
 
     try {
-      logger.debug("Extracting URL");
-      const url = this.items[this.pointer].orig_url;
-
+      this.queueState;
+      let item = this.items[this.pointer];
+      const url = this.items[this.pointer].stream_url;
       let resource = await this.urlExtractor.createAudioResource(url);
 
-      logger.debug(`Playing next item: ${url} with pointer: ${this.pointer}`);
+      logger.debug(
+        `Playing next item: ${item.original_url} with pointer: ${this.pointer}`
+      );
       this.currentIndex = this.pointer;
       this.pointer++;
       this.resource = resource;
       await this.player.play(resource);
     } catch (error) {
       if (error instanceof YtDlpExtractError) {
-        logger.error("Error extracting URL:", error);
+        logger.error("Error extracting URL");
         this.skip(this.pointer + 1);
+      } else if (error instanceof InvalidStreamUrl) {
+        // This is kinda of a hack.
+        // We should handle this in a better way in a later update
+        this.queueState.status = "idle";
+        logger.error(`Invalid stream URL: ${error.message}`);
+        // TODO in a posterior update, handle the expired stream URL
+        // Request a new stream URL for the item and all the next items
+        // Remove the items from this point to the end from the queue and
+        //  add them to the end of the queue.
+        // For a seamless experience, we will need to handle the case where the
+        //  user uses the queue commandto play the next item and we just removed
+        //  the items from the queue, by using a copy of the items
+        //  as the display values.
+        let items_to_resolve = this.items.slice(
+          this.pointer,
+          this.items.length
+        );
+        this.items = this.items.slice(0, this.pointer);
+
+        this.urlExtractor._resolveItems(items_to_resolve);
       } else {
-        logger.error("Unexpected error:", error.message);
+        //throw error;
+        logger.error(`Error playing next item: ${error.message}`);
       }
     }
   }
   // Add an item to the queue
   // Could be a single URL or an array of URLs
-  enqueue(items) {
-    if (Array.isArray(items)) {
-      for (const item of items) {
-        this._enqueueSingle(item);
-      }
-    } else {
-      this._enqueueSingle(items);
-    }
+  async enqueue(urls) {
+    this.urlExtractor.requestItems(urls);
   }
-  _enqueueSingle(item) {
-    if (this.items.length === 0) {
-      this.pointer = 0;
-    }
-    this.items.push(item);
-    this.emit("added", item);
-  }
-
   peek() {
     if (this.isEmpty()) {
       throw new Error("Queue is empty");
@@ -283,13 +299,6 @@ class Queue extends EventEmitter {
       return;
     }
 
-    if (this.queueState.errored && !this.queueState.replay.replaying) {
-      logger.debug("Player errored, trying to replay");
-      this.replay();
-      this.queueState.replay.replaying = false;
-      this.queueState.errored = false;
-      return;
-    }
     logger.debug("Checking play conditions");
     if (this._checkPlayConditions()) {
       this.playNext();

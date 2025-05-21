@@ -75,17 +75,17 @@ export async function run(interaction) {
 
     let queue = interaction.client.queues.get(interaction.guild.id);
     if (!queue) {
-      queue = new Queue(player, null);
+      let extractor = new Yt_dlp_Extractor();
+      queue = new Queue(player, extractor);
       interaction.client.queues.set(interaction.guild.id, queue);
     }
-    let extractor = new Yt_dlp_Extractor();
+
     let items = [];
     try {
-      items = await extractor.getItems(url);
+      //urls = await queue.urlExtractor.getItems(url);
       logger.debug("Items length:", items.length);
       logger.debug("Queueing items");
-      queue.enqueue(items);
-      queue.emit("start");
+      queue.enqueue(url);
     } catch (error) {
       logger.debug("Error:", error.message);
       await interaction.followUp({

@@ -16,6 +16,9 @@ COPY package*.json ./
 # If you need devDependencies to build assets, remove this.
 RUN npm install --omit=dev
 
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ~/.local/bin/yt-dlp
+
+RUN chmod a+rx ~/.local/bin/yt-dlp
 # Copy the rest of your application's source code into the working directory.
 #  This should be done *after* installing dependencies.
 COPY . .
