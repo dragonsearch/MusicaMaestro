@@ -30,6 +30,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
   constructor(options = null) {
     super();
     // Video urls expire after 6 hours usually.
+    this.resolve_requests = [];
     this.expirationTime = 60 * 50 * 6;
     this.options = options;
     if (!this.options) {
@@ -65,6 +66,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
       logger.debug("Single URL detected");
       let metadata = await this.getSingleMetadata(url);
       let item = new Item(url, metadata.requested_downloads[0].url, metadata);
+      this.emit("resolve", item);
       return [item];
     } else if (urlType.type === "playlist") {
       // TODO: Single and playlist should be handled the same way
@@ -92,13 +94,95 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
   }
 
   async getSingleMetadata(url) {
-    try {
-      let resource = await youtubedl(url, this.options);
-      return resource;
-    } catch (err) {
-      logger.error("Error getting metadata:", err);
-      throw new YtDlpExtractError("Failed to extract metadata", url);
-    }
+    return new Promise((resolve, reject) => {
+      let databuffer = ""; // This variable will accumulate data from stdout
+
+      const child_spawn = spawn(
+        "yt-dlp",
+        [
+          url,
+          "--dump-single-json",
+          "--no-check-certificates",
+          "--no-warnings",
+          "--prefer-free-formats",
+          "--format",
+          "bestaudio[protocol*=https]",
+          "--audio-format",
+          "opus",
+          "--audio-quality",
+          "0",
+          "--skip-download",
+          "--cookies",
+          "cookies.txt",
+          "--add-header",
+          "referer:youtube.com",
+          "--add-header",
+          "user-agent:googlebot",
+        ],
+        {
+          detached: false,
+          stdio: ["ignore", "pipe", "pipe"],
+        }
+      );
+
+      child_spawn.stdout.on("data", (data) => {
+        databuffer += data.toString();
+      });
+
+      child_spawn.stderr.on("data", (data) => {
+        logger.error(`yt-dlp stderr: ${data.toString()}`);
+      });
+
+      child_spawn.on("close", (code) => {
+        if (code === 0) {
+          // Process exited successfully
+          try {
+            // It's possible for yt-dlp to output multiple lines,
+            // but with --dump-single-json, we expect one complete JSON object.
+            // We'll take the last complete line in case of warnings before the JSON.
+            const lines = databuffer
+              .split("\n")
+              .filter((line) => line.trim() !== "");
+            const lastLine = lines[lines.length - 1];
+
+            if (lastLine === "" || lastLine === "null") {
+              logger.warn(
+                "Empty or null line received from yt-dlp, item might be unavailable."
+              );
+              return reject(new Error("Empty or null metadata received."));
+            }
+
+            const resource = JSON.parse(lastLine);
+            if (!resource.requested_downloads && !resource.entries) {
+              // yt-dlp returns 'entries' for playlists
+              logger.error(`Invalid metadata for song: ${url}`);
+              return reject(new Error(`Invalid metadata for URL: ${url}`));
+            }
+            resolve(resource);
+          } catch (error) {
+            logger.error(
+              `Error parsing JSON from yt-dlp output for ${url}: ${error}`
+            );
+            reject(
+              new Error(
+                `Error parsing JSON from yt-dlp output: ${error.message}`
+              )
+            );
+          }
+        } else {
+          // Process exited with an error code
+          logger.error(
+            `yt-dlp process exited with code ${code} for URL: ${url}`
+          );
+          reject(new Error(`yt-dlp process exited with code ${code}`));
+        }
+      });
+
+      child_spawn.on("error", (err) => {
+        logger.error(`Failed to start yt-dlp process: ${err}`);
+        reject(err);
+      });
+    });
   }
 
   // Method to get the URL using yt-dlp

@@ -159,6 +159,7 @@ class Queue extends EventEmitter {
     }
   }
   stop() {
+    this.urlExtractor.stopResolveRequests();
     this.items = [];
     this.pointer = 0;
     this.player.stop(true);
