@@ -39,7 +39,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
         noCheckCertificates: true,
         noWarnings: true,
         preferFreeFormats: true,
-        format: "bestaudio/best",
+        format: "bestaudio[protocol*=https]",
         audioFormat: "opus",
         audioQuality: "0",
         skipDownload: true,
@@ -245,7 +245,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
         "--no-warnings",
         "--prefer-free-formats",
         "--format",
-        "bestaudio/best", // Option and its value as separate elements
+        "bestaudio[protocol*=https]", // Option and its value as separate elements
         "--audio-format",
         "opus", // Option and its value
         "--audio-quality",
