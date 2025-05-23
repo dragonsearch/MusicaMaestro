@@ -306,7 +306,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
             logger.debug(
               `Total duration of ${acumulated_duration} seconds reached. Stopping item resolution.`
             );
-            this.emit("end");
+            ///this.emit("end");
             child_spawn.kill();
             break;
           }
@@ -318,6 +318,18 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
     });
     child_spawn.stderr.on("data", (data) => {
       logger.error(`Error: ${data}`);
+    });
+    child_spawn.on("stopped", () => {
+      logger.debug("Child process stopped");
+      if (databuffer.length > 0) {
+        logger.error("Error: Buffer not empty");
+        throw new Error("Buffer not empty");
+      }
+      // if there are any urls left, we need to clear them
+      urls = [];
+      items = [];
+      url_index = 0;
+      databuffer = "";
     });
     child_spawn.on("close", (code) => {
       if (databuffer.length > 0) {
@@ -342,6 +354,15 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
     child_spawn.on("error", (err) => {
       throw new Error(`Child process error: ${err}`);
     });
+    this.resolve_requests.push(child_spawn);
+  }
+  stopResolveRequests() {
+    logger.debug("Stopping resolve requests");
+    for (const request of this.resolve_requests) {
+      request.emit("stopped");
+      request.kill();
+    }
+    this.resolve_requests = [];
   }
 
   getPlaylistUrls(metadata) {
