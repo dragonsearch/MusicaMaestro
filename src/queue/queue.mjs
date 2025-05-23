@@ -129,7 +129,6 @@ class Queue extends EventEmitter {
       status: "idle",
       errored: false,
     };
-    this.pointer = 0;
     return true;
   }
 
