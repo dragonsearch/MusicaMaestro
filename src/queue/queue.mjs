@@ -129,7 +129,6 @@ class Queue extends EventEmitter {
       status: "idle",
       errored: false,
     };
-    this.pointer = 0;
     return true;
   }
 
@@ -159,6 +158,7 @@ class Queue extends EventEmitter {
     }
   }
   stop() {
+    this.urlExtractor.stopResolveRequests();
     this.items = [];
     this.pointer = 0;
     this.player.stop(true);

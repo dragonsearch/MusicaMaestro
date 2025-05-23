@@ -16,13 +16,16 @@ COPY package*.json ./
 # If you need devDependencies to build assets, remove this.
 RUN npm install --omit=dev
 
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ~/.local/bin/yt-dlp
+RUN apk add --no-cache ffmpeg && \
+    wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp && \
+    chmod a+rx /usr/local/bin/yt-dlp
 
-RUN chmod a+rx ~/.local/bin/yt-dlp
+
 # Copy the rest of your application's source code into the working directory.
 #  This should be done *after* installing dependencies.
 COPY . .
 
 # Define the command to run your application.  Use "node" if you're directly
 #  running a script, or "npm start" if you have a start script in package.json.
+RUN yt-dlp --update-to nightly
 CMD [ "npm", "start" ]
