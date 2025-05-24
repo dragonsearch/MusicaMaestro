@@ -60,7 +60,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
   }
 
   async requestItems(url) {
-    logger.debug("Getting URLs from:", url);
+    logger.debug(`Requesting items for URL: ${url}`);
     const urlType = this._validateUrl(url);
     if (urlType.type === "single") {
       logger.debug("Single URL detected");
@@ -80,7 +80,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
     }
   }
   async getMetadata(url) {
-    logger.debug("Getting metadata from:", url);
+    logger.debug(`Getting metadata for URL: ${url}`);
     const urlType = this._validateUrl(url);
     if (urlType.type === "single") {
       logger.debug("Single URL detected");
@@ -191,8 +191,11 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
       let resource = await youtubedl(url, this.options);
       return resource.requested_downloads[0].url;
     } catch (err) {
-      logger.error("Error getting stream URL:", err);
-      throw new YtDlpExtractError("Failed to extract stream URL", url);
+      logger.error(`Error extracting stream URL for ${url}: ${err.message}`);
+      throw new YtDlpExtractError(
+        `Error extracting stream URL for ${url}`,
+        url
+      );
     }
   }
   // Method to check if a URL is valid and determine its type
@@ -267,16 +270,12 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
     let url_index = 0;
     let acumulated_duration = 0;
     child_spawn.stdout.on("data", async (data) => {
-      //child_spawn.stdout.pause();
       let dataString = data.toString();
       databuffer += dataString;
       let newlineIndex;
       while ((newlineIndex = databuffer.indexOf("\n")) !== -1) {
-        //logger.debug("New line found");
         const str_metadata = databuffer.substring(0, newlineIndex);
-        //logger.debug(`Metadata: ${str_metadata}`);
         databuffer = databuffer.substring(newlineIndex + 1);
-        //logger.debug(`Buffer: ${databuffer}`);
         try {
           if (str_metadata === "" || str_metadata == "null") {
             logger.warn("Empty line while parsing JSON, item unavailable");
@@ -306,7 +305,6 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
             logger.debug(
               `Total duration of ${acumulated_duration} seconds reached. Stopping item resolution.`
             );
-            ///this.emit("end");
             child_spawn.kill();
             break;
           }
@@ -391,11 +389,11 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
   }
   // Method to create a stream from the URL
   createStream(url) {
-    logger.debug("Creating stream from URL:", url);
+    logger.debug(`Creating stream from URL: ${url}`);
     return fetch(url).then((response) => {
       if (!response.ok) {
-        logger.error("Error fetching stream URL:", response.statusText);
-        logger.error("URL:", url);
+        logger.error(`Failed to fetch stream URL: ${response.statusText}`);
+        logger.error(`Response status: ${response.status}`);
         throw new InvalidStreamUrl("Failed to fetch stream url", url);
       }
       return Readable.fromWeb(response.body);
@@ -403,7 +401,7 @@ export default class Yt_dlp_Extractor extends IUrlExtractor {
   }
   async createAudioResource(url) {
     if (!url) {
-      throw new InvalidStreamUrl("No stream URL found.", url);
+      throw new InvalidStreamUrl(`Invalid stream URL: ${url}`, url);
     }
     logger.debug(`creating audio resource from URL: ${url}`);
     const stream = await this.createStream(url);

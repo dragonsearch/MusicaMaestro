@@ -80,14 +80,12 @@ export async function run(interaction) {
       interaction.client.queues.set(interaction.guild.id, queue);
     }
 
-    let items = [];
     try {
       //urls = await queue.urlExtractor.getItems(url);
-      logger.debug("Items length:", items.length);
       logger.debug("Queueing items");
       queue.enqueue(url);
     } catch (error) {
-      logger.debug("Error:", error.message);
+      logger.debug(`Error while queueing items: ${error.message}`);
       await interaction.followUp({
         content: "Error: " + error.message,
         ephemeral: true,
