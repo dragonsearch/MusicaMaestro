@@ -34,17 +34,15 @@ class Queue extends EventEmitter {
     this.resource = null;
 
     this.player.on("error", (error) => {
-      this.queueState.errored = true;
-      logger.error("Error:", error);
-      logger.error("Error message:", error.message);
-      if (this.queueState.errored && !this.queueState.replay.replaying) {
+      logger.error(`Player error: ${error}`);
+      logger.error(`Player error: ${error.message}`);
+      if (!this.queueState.replay.replaying) {
         logger.debug("Player errored, trying to replay");
         this.replay();
         this.queueState.replay.replaying = false;
         this.queueState.errored = false;
         return;
       }
-      //Print stream
     });
 
     this.player.on("stateChange", (old, newstate) => {
