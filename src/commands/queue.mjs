@@ -4,10 +4,14 @@ export const name = "queue";
 export const description = "Shows the current queue";
 export const options = [];
 export async function run(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+  await interaction.editReply({
+    content: "Fetching the current queue...",
+  });
   const queue = interaction.client.queues.get(interaction.guild.id);
   if (!queue || queue.isEmpty()) {
-    await interaction.reply({
-      content: "The queue is empty!",
+    await interaction.editReply({
+      content: "No active queue found for this guild.",
       ephemeral: true,
     });
     return;
@@ -20,7 +24,7 @@ export async function run(interaction) {
   let reply_options = createQueueMessage(queue, start, end);
   // REFACTOR: Add a thumbnail with the first item's thumbnail
 
-  let response = await interaction.reply(reply_options);
+  let response = await interaction.editReply(reply_options);
 
   const collector = response.createMessageComponentCollector({
     componentType: ComponentType.Button,

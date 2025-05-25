@@ -280,7 +280,7 @@ class Queue extends EventEmitter {
   // Add an item to the queue
   // Could be a single URL or an array of URLs
   async enqueue(urls) {
-    this.urlExtractor.requestItems(urls);
+    await this.urlExtractor.requestItems(urls);
   }
   peek() {
     if (this.isEmpty()) {

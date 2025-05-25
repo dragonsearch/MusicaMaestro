@@ -27,19 +27,22 @@ export const options = [
 
 export async function run(interaction) {
   const queue = interaction.client.queues.get(interaction.guild.id);
-
+  await interaction.deferReply({ ephemeral: true });
+  await interaction.editReply({
+    content: "Setting loop mode...",
+  });
   if (!queue) {
-    await interaction.reply({
-      content: "There is no queue in this server.",
+    await interaction.editReply({
+      content: "No active queue found for this guild.",
       ephemeral: true,
     });
     return;
   }
   let mode = interaction.options.getString("mode");
-  await interaction.reply({
+  await interaction.editReply({
     content: `Loop mode set to ${mode}`,
-    ephemeral: true,
   });
+
   if (mode === "none") {
     queue.disableLoop();
   } else if (mode === "song") {
