@@ -166,6 +166,12 @@ class Queue extends EventEmitter {
     this.queueState = {
       status: "idle",
       errored: false,
+      replay: {
+        replaying: false,
+        last_replayed: null,
+        tries: 0,
+      },
+      skipped: false,
     };
   }
 
@@ -265,7 +271,8 @@ class Queue extends EventEmitter {
 
         this.urlExtractor._resolveItems(items_to_resolve);
       } else {
-        //throw error;
+        //show stack
+        logger.error(`Error playing next item: ${error.stack}`);
         logger.error(`Error playing next item: ${error.message}`);
       }
     }

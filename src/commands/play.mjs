@@ -66,20 +66,18 @@ export async function run(interaction) {
       return;
     }
 
-    if (connection._state.subscription) {
-      logger.debug("Player already subscribed");
-    } else {
-      logger.debug("Player not subscribed");
-      connection.subscribe(player);
-    }
-
     let queue = interaction.client.queues.get(interaction.guild.id);
     if (!queue) {
       let extractor = new Yt_dlp_Extractor();
       queue = new Queue(player, extractor);
       interaction.client.queues.set(interaction.guild.id, queue);
     }
-
+    if (connection._state.subscription) {
+      logger.debug("Player already subscribed");
+    } else {
+      logger.debug("Player not subscribed");
+      connection.subscribe(queue.player);
+    }
     let items = [];
     try {
       //urls = await queue.urlExtractor.getItems(url);
