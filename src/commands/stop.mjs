@@ -4,12 +4,14 @@ export const description =
   "Stops and disconnects the bot from the voice channel";
 export const options = [];
 export async function run(interaction) {
-  // Should do an instant reply so interaction doesn't time out
-  await interaction.reply({ content: "Stopping audio...", ephemeral: true });
+  await interaction.deferReply({ ephemeral: true });
+  await interaction.editReply({
+    content: "Stopping playback and disconnecting from the voice channel...",
+  });
 
   const queue = interaction.client.queues.get(interaction.guild.id);
   if (!queue) {
-    await interaction.followUp({
+    await interaction.editReply({
       content: "No active queue found for this guild.",
       ephemeral: true,
     });
@@ -24,10 +26,8 @@ export async function run(interaction) {
         connection.destroy();
       }
       // Notify the user that the bot has stopped playing
-      await interaction.followUp({
-        content:
-          "The bot has stopped playing and disconnected from the voice channel.",
-        ephemeral: true,
+      await interaction.editReply({
+        content: "Playback stopped and disconnected from the voice channel.",
       });
     }
   }

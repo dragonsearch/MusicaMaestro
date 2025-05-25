@@ -26,8 +26,10 @@ export const options = [
 ];
 
 export async function run(interaction) {
-  // Should do an instant reply so interaction doesn't time out
-  await interaction.reply({ content: "Playing audio...", ephemeral: true });
+  await interaction.deferReply({ ephemeral: true });
+  await interaction.editReply({
+    content: "Connecting to voice channel and playing...",
+  });
   let url = interaction.options.getString("yt_url");
   let player = interaction.client.audio_player;
   player = createAudioPlayer({
