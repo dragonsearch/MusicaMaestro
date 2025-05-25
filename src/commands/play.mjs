@@ -85,7 +85,7 @@ export async function run(interaction) {
       //urls = await queue.urlExtractor.getItems(url);
       logger.debug("Items length:", items.length);
       logger.debug("Queueing items");
-      queue.enqueue(url);
+      await queue.enqueue(url);
     } catch (error) {
       logger.debug("Error:", error.message);
       await interaction.followUp({
