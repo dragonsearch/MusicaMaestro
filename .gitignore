@@ -4,3 +4,4 @@ src/Data/token.json
 *.mp3
 cookies.txt
 logs/*
+built/*

@@ -2,10 +2,11 @@
   "name": "musicamaestro",
   "version": "1.0.0",
   "description": "A discord music bot.",
-  "type": "module",
+  "type": "commonjs",
   "exports": "./src/main.mjs",
   "scripts": {
-    "start": "node src/main.mjs"
+    "start": "tsc && node built/main.js",
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
@@ -23,7 +24,8 @@
   "devDependencies": {
     "@eslint/js": "^9.22.0",
     "eslint": "^9.22.0",
-    "globals": "^16.0.0"
+    "globals": "^16.0.0",
+    "typescript": "^5.8.3"
   },
   "overrides": {
     "glob": "^10.3.2"
