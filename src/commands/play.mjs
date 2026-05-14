@@ -9,7 +9,7 @@ import {
 } from "@discordjs/voice";
 
 import { ApplicationCommandOptionType } from "discord.js";
-import Queue from "../queue/queue.mjs";
+import Queue from "../queue/queue.js";
 
 import Yt_dlp_Extractor from "../extractor/Yt-dlp_Extractor.mjs";
 import { logger } from "../utils/logger/logger.mjs";
@@ -25,11 +25,11 @@ export const options = [
   },
 ];
 
-export async function run(interaction) {
+export async function run(bot, interaction) {
   // Should do an instant reply so interaction doesn't time out
   await interaction.reply({ content: "Playing audio...", ephemeral: true });
   let url = interaction.options.getString("yt_url");
-  let player = interaction.client.audio_player;
+  let player = bot.client.audio_player;
   player = createAudioPlayer({
     behaviors: {
       noSubscriber: NoSubscriberBehavior.Stop,

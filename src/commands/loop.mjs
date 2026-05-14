@@ -25,8 +25,8 @@ export const options = [
   },
 ];
 
-export async function run(interaction) {
-  const queue = interaction.client.queues.get(interaction.guild.id);
+export async function run(bot, interaction) {
+  const queue = bot.client.queues.get(interaction.guild.id);
 
   if (!queue) {
     await interaction.reply({

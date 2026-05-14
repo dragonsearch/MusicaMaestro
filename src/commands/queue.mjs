@@ -3,8 +3,8 @@ import { ComponentType } from "discord.js";
 export const name = "queue";
 export const description = "Shows the current queue";
 export const options = [];
-export async function run(interaction) {
-  const queue = interaction.client.queues.get(interaction.guild.id);
+export async function run(bot, interaction) {
+  const queue = bot.client.queues.get(interaction.guild.id);
   if (!queue || queue.isEmpty()) {
     await interaction.reply({
       content: "The queue is empty!",

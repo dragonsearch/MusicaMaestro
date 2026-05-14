@@ -15,7 +15,7 @@ async function getSaveCommands(bot) {
   for await (const file of commands) {
     logger.info(`Loading file command ${file}`);
     const command = await import(`../../../commands/${file}`);
-    bot.client.commands.set(command.name, command);
+    bot.commands.set(command.name, command);
     commandslist.push(command);
     logger.info(`File command ${file} loaded`);
   }
