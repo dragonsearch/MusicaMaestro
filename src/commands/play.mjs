@@ -37,22 +37,19 @@ export async function run(interaction) {
       noSubscriber: NoSubscriberBehavior.Stop,
     },
   });
-
-  let connection = new InteractionConnection(interaction);
-
+ let connection = new InteractionConnection(interaction);
   logger.debug("Creating connection");
   let connected = await connection.createConnection();
-
   if (connected) {
     logger.debug("Connected to voice channel");
     const connection = getVoiceConnection(interaction.guild.id);
     try {
-      await entersState(connection, VoiceConnectionStatus.Ready, 10000);
+      await entersState(connection, VoiceConnectionStatus.Ready, 30000);
       logger.debug("Voice connection ready");
     } catch (error) {
-      logger.debug("Voice Connection not ready within 10s.", error);
+      logger.debug("Voice Connection not ready within 30s.", error);
       await interaction.followUp({
-        content: "Voice Connection not ready within 10s.",
+        content: "Voice Connection not ready within 30s.",
         ephemeral: true,
       });
       return null;
