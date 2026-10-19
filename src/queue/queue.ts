@@ -2,26 +2,29 @@ import Yt_dlp_Extractor, {
   InvalidStreamUrl,
 } from "../extractor/Yt-dlp_Extractor.mjs";
 import EventEmitter from "events";
-import { AudioPlayerStatus } from "@discordjs/voice";
+import { AudioPlayerStatus, AudioPlayer } from "@discordjs/voice";
 import { YtDlpExtractError } from "../extractor/Yt-dlp_Extractor.mjs";
 import { logger } from "../utils/logger/logger.mjs";
-import { BlobOptions } from "buffer";
+type QueueItem = {
+  original_url: string;
+  stream_url: string | null;
+  metadata: any;
+};
 type queueState = {
-  status: string,
-  errored: boolean,
-  replay: replayStatus,
-  skipped: boolean
-}
+  status: string;
+  errored: boolean;
+  replay: replayStatus;
+  skipped: boolean;
+};
 type replayStatus = {
-  replaying: boolean,
-  last_replayed: null | number
-  tries: number 
-}
-
+  replaying: boolean;
+  last_replayed: null | number;
+  tries: number;
+};
+type LoopMode = "playlist" | "current" | null;
 class Queue extends EventEmitter {
-  
-  loop: { enabled: boolean; mode: string | null };
-  player: any;
+  loop: { enabled: boolean; mode: LoopMode };
+  player: AudioPlayer;
   items: any[];
   queueState: any;
   resource: any;
@@ -30,9 +33,9 @@ class Queue extends EventEmitter {
   urlExtractor: any;
 
   constructor(
-    player,
+    player: AudioPlayer,
     urlExtractor = null,
-    loop = { enabled: false, mode: null }
+    loop = { enabled: false, mode: null },
   ) {
     super();
     this.loop = loop;
@@ -81,7 +84,7 @@ class Queue extends EventEmitter {
     } else {
       this.urlExtractor = urlExtractor;
     }
-    this.urlExtractor.on("resolve", (item) => {
+    this.urlExtractor.on("resolve", (item: QueueItem) => {
       logger.debug(`Item resolved: ${item.original_url}`);
       this.items.push(item);
       if (this.queueState.status === "idle") {
@@ -132,7 +135,7 @@ class Queue extends EventEmitter {
     return this._pointer;
   }
 
-  setLoopMode(mode) {
+  setLoopMode(mode: LoopMode) {
     // playlist, current, null
     this.loop.mode = mode;
   }
@@ -181,19 +184,20 @@ class Queue extends EventEmitter {
   stop() {
     this.urlExtractor.stopResolveRequests();
     this.items = [];
-    this.pointer = 0;
     this.player.stop(true);
-    this.emit("queueEnd");
+    this.resource = null;
     this.queueState = {
       status: "idle",
       errored: false,
+      skipped: false,
       replay: {
         replaying: false,
         last_replayed: null,
         tries: 0,
       },
-      skipped: false,
     };
+    this._pointer = 0;
+    this.emit("queueEnd");
   }
 
   skip(to = this.pointer) {
@@ -202,7 +206,7 @@ class Queue extends EventEmitter {
     this.queueState.skipped = false;
     logger.info(
       `Skipping to item:
-            with pointer: ${this.pointer}`
+            with pointer: ${this.pointer}`,
     );
     this._restartPlaying();
   }
@@ -261,7 +265,7 @@ class Queue extends EventEmitter {
       let resource = await this.urlExtractor.createAudioResource(url);
 
       logger.debug(
-        `Playing next item: ${item.original_url} with pointer: ${this.pointer}`
+        `Playing next item: ${item.original_url} with pointer: ${this.pointer}`,
       );
       this.currentIndex = this.pointer;
       this.pointer++;
@@ -286,21 +290,25 @@ class Queue extends EventEmitter {
         //  as the display values.
         let items_to_resolve = this.items.slice(
           this.pointer,
-          this.items.length
+          this.items.length,
         );
         this.items = this.items.slice(0, this.pointer);
 
         this.urlExtractor._resolveItems(items_to_resolve);
       } else {
         //show stack
-        logger.error(`Error playing next item: ${error.stack}`);
-        logger.error(`Error playing next item: ${error.message}`);
+        if (error instanceof Error) {
+          logger.error(`Error playing next item: ${error.stack}`);
+          logger.error(`Error playing next item: ${error.message}`);
+        } else {
+          logger.error(`Error playing next item: ${String(error)}`);
+        }
       }
     }
   }
   // Add an item to the queue
   // Could be a single URL or an array of URLs
-  async enqueue(urls) {
+  async enqueue(urls: string | string[]) {
     await this.urlExtractor.requestItems(urls);
   }
   peek() {
@@ -323,7 +331,10 @@ class Queue extends EventEmitter {
   }
   _onIdle() {
     logger.debug("Player is idle! Event was fired");
-    if (this.player.subscribers.length === 0) {
+    // subscribers is private in @discordjs/voice. playable is the public
+    // getter for the same list, filtered to connections that are actually
+    // ready to receive audio.
+    if (this.player.playable.length === 0) {
       return;
     }
 
