@@ -4,10 +4,14 @@ export const name = "queue";
 export const description = "Shows the current queue";
 export const options = [];
 export async function run(bot, interaction) {
+  await interaction.deferReply({ ephemeral: true });
+  await interaction.editReply({
+    content: "Fetching the current queue...",
+  });
   const queue = bot.client.queues.get(interaction.guild.id);
   if (!queue || queue.isEmpty()) {
-    await interaction.reply({
-      content: "The queue is empty!",
+    await interaction.editReply({
+      content: "No active queue found for this guild.",
       ephemeral: true,
     });
     return;
@@ -20,7 +24,7 @@ export async function run(bot, interaction) {
   let reply_options = createQueueMessage(queue, start, end);
   // REFACTOR: Add a thumbnail with the first item's thumbnail
 
-  let response = await interaction.reply(reply_options);
+  let response = await interaction.editReply(reply_options);
 
   const collector = response.createMessageComponentCollector({
     componentType: ComponentType.Button,
@@ -64,13 +68,11 @@ function createQueueMessage(queue, start, end) {
     .map((item, index) => {
       // Display if the current item is playing
       if (queue.currentIndex === start + index) {
-        return `Now playing -> **${start + index + 1}. [${
-          item.metadata.title
-        }](${item.original_url})**`;
+        return `Now playing -> **${start + index + 1}. [${item.metadata.title
+          }](${item.original_url})**`;
       }
-      return `${start + index + 1}. [${item.metadata.title}](${
-        item.original_url
-      })`;
+      return `${start + index + 1}. [${item.metadata.title}](${item.original_url
+        })`;
     })
     .join("\n");
 

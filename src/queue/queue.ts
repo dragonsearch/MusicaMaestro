@@ -187,6 +187,12 @@ class Queue extends EventEmitter {
     this.queueState = {
       status: "idle",
       errored: false,
+      replay: {
+        replaying: false,
+        last_replayed: null,
+        tries: 0,
+      },
+      skipped: false,
     };
   }
 
@@ -286,7 +292,8 @@ class Queue extends EventEmitter {
 
         this.urlExtractor._resolveItems(items_to_resolve);
       } else {
-        //throw error;
+        //show stack
+        logger.error(`Error playing next item: ${error.stack}`);
         logger.error(`Error playing next item: ${error.message}`);
       }
     }
@@ -294,7 +301,7 @@ class Queue extends EventEmitter {
   // Add an item to the queue
   // Could be a single URL or an array of URLs
   async enqueue(urls) {
-    this.urlExtractor.requestItems(urls);
+    await this.urlExtractor.requestItems(urls);
   }
   peek() {
     if (this.isEmpty()) {
