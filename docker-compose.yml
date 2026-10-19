@@ -1,0 +1,9 @@
+services:
+  musicamaestro:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: musicamaestro
+    restart: unless-stopped
+    env_file:
+      - .env

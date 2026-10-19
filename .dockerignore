@@ -1,0 +1,7 @@
+node_modules
+.git
+.env
+audio
+logs
+*.mp3
+cookies.txt
