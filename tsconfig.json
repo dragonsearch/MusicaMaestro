@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
 
-        "outDir": "./built",
+      "rootDir": "./src",
+      "outDir": "./built",
     "allowJs": true,
     /* Visit https://aka.ms/tsconfig to read more about this file */
 

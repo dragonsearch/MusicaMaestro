@@ -1,0 +1,19 @@
+{
+  // Type-checks the test suite. The main tsconfig.json only includes ./src,
+  // so `npm run build` never looks at tests/. This config extends it and adds
+  // tests/ without emitting anything.
+  //
+  // checkJs stays off on purpose: the .mjs sources are not type-checked by the
+  // build, and turning it on here would bury real test errors under hundreds
+  // of pre-existing ones. JSDoc annotations are still used for inference, so
+  // a wrong @param in a .mjs file still surfaces as an error in the test that
+  // calls it.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Tests live outside ./src, so the inherited rootDir would reject them.
+    "rootDir": ".",
+    "checkJs": false
+  },
+  "include": ["./src/**/*", "./tests/**/*"]
+}

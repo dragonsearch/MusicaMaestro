@@ -6,7 +6,12 @@
   "exports": "./src/main.mjs",
   "scripts": {
     "start": "tsc && node built/main.js",
-    "build": "tsc"
+    "build": "tsc",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "check": "npm run typecheck && npm test"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
+    "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^9.22.0",
     "globals": "^16.0.0",
     "typescript": "^5.8.3",
