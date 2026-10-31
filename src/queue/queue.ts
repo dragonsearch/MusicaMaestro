@@ -2,40 +2,83 @@ import Yt_dlp_Extractor, {
   InvalidStreamUrl,
 } from "../extractor/Yt-dlp_Extractor.mjs";
 import EventEmitter from "events";
-import { AudioPlayerStatus, AudioPlayer } from "@discordjs/voice";
+import { AudioPlayerStatus, AudioResource } from "@discordjs/voice";
 import { YtDlpExtractError } from "../extractor/Yt-dlp_Extractor.mjs";
 import { logger } from "../utils/logger/logger.mjs";
-type QueueItem = {
+
+// Shape of an item in the queue. Mirrors Item.mjs.
+// stream_url is null for playlist items until the extractor resolves them,
+// so it has to allow null or the compiler cannot see that case.
+export type QueueItem = {
   original_url: string;
   stream_url: string | null;
-  metadata: any;
+  metadata: unknown;
 };
-type queueState = {
-  status: string;
+// Only two states exist. There is no paused state in this bot at this point.
+type QueueStatus = "idle" | "playing";
+// Full runtime state of the queue. Every field has to be reset together,
+// otherwise the pointer setter and the player error handler read undefined, causing a crash.
+export type queueState = {
+  status: QueueStatus;
   errored: boolean;
   replay: replayStatus;
   skipped: boolean;
 };
-type replayStatus = {
+// Retry fields for a song that keeps failing.
+// last_replayed is the song the tries belong to, so switching songs resets them.
+export type replayStatus = {
   replaying: boolean;
   last_replayed: null | number;
   tries: number;
 };
-type LoopMode = "playlist" | "current" | null;
+// Loop modes the loop command can set.
+export type LoopMode = "playlist" | "current" | null;
+
+// The part of AudioPlayer that Queue actually uses.
+// Declared here so tests can pass a fake without casting to any.
+// If Queue starts using another player method, add it here and the fake
+// will fail to compile until it implements it.
+export interface QueuePlayer {
+  state: { status: AudioPlayerStatus };
+  // playable is the public getter. subscribers is private in the library.
+  playable: unknown[];
+  play(resource: AudioResource): unknown;
+  stop(force?: boolean): void;
+  on(event: "error", listener: (error: Error) => void): unknown;
+  on(
+    event: "stateChange",
+    listener: (
+      oldState: unknown,
+      newState: { status: AudioPlayerStatus },
+    ) => void,
+  ): unknown;
+}
+
+// The part of the extractor that Queue actually uses.
+// Same reason as QueuePlayer: keeps the fake honest.
+export interface QueueExtractor {
+  on(event: "resolve", listener: (item: QueueItem) => void): unknown;
+  stopResolveRequests(): void;
+  requestItems(urls: string | string[]): Promise<unknown>;
+  createAudioResource(url: string): Promise<AudioResource>;
+  _resolveItems(items: QueueItem[]): Promise<void>;
+}
+
 class Queue extends EventEmitter {
   loop: { enabled: boolean; mode: LoopMode };
-  player: AudioPlayer;
-  items: any[];
-  queueState: any;
-  resource: any;
+  player: QueuePlayer;
+  items: QueueItem[];
+  queueState: queueState;
+  // Null until the first song plays, and again after stop().
+  resource: AudioResource | null;
   currentIndex: number;
   _pointer: number;
-  urlExtractor: any;
+  urlExtractor: QueueExtractor;
 
   constructor(
-    player: AudioPlayer,
-    urlExtractor = null,
-    loop = { enabled: false, mode: null },
+    player: QueuePlayer,
+    urlExtractor: QueueExtractor | null = null,
+    loop: { enabled: boolean; mode: LoopMode } = { enabled: false, mode: null },
   ) {
     super();
     this.loop = loop;
@@ -47,19 +90,23 @@ class Queue extends EventEmitter {
       // Keeps track of the error state, which is set to true on error
       // and set to false when the queue is replayed
       errored: false,
-    };
-    //Keeps track of the tracks that were errored and retried to be played
-    // 3 times before skipping
-    this.queueState.replay = {
-      replaying: false,
-      last_replayed: null,
-      tries: 0,
+      // Only true while skip() is assigning the pointer.
+      // The setter uses it to tell a skip apart from a normal advance.
+      skipped: false,
+      //Keeps track of the tracks that were errored and retried to be played
+      // 3 times before skipping
+      replay: {
+        replaying: false,
+        last_replayed: null,
+        tries: 0,
+      },
     };
     // Resource being played. Probably could make a class
     // that handles resources instead of hardcoding.
     this.resource = null;
 
-    this.player.on("error", (error) => {
+    // error is typed because the port declares the listener signature.
+    this.player.on("error", (error: Error) => {
       logger.error(`Player error: ${error}`);
       logger.error(`Player error: ${error.message}`);
       if (!this.queueState.replay.replaying) {
@@ -71,25 +118,27 @@ class Queue extends EventEmitter {
       }
     });
 
-    this.player.on("stateChange", (old, newstate) => {
+    // old state is unused, so it is prefixed with _ to keep it clear.
+    this.player.on("stateChange", (_old, newstate) => {
       if (newstate.status === AudioPlayerStatus.Idle) {
-        this._onIdle();
+        this._onPlayerIdle();
       }
     });
     this.currentIndex = 0;
     // Points to the next item to be played.
     this._pointer = 0;
-    if (!urlExtractor) {
-      this.urlExtractor = new Yt_dlp_Extractor();
-    } else {
-      this.urlExtractor = urlExtractor;
-    }
+    // The extractor is still a .mjs file, so TypeScript cannot see its
+    // inherited EventEmitter members. Cast once at this boundary.
+    // Remove the cast when the extractor is migrated to .ts.
+    this.urlExtractor = (urlExtractor ??
+      new Yt_dlp_Extractor()) as unknown as QueueExtractor;
+    // item is typed so the queue knows what it is pushing.
     this.urlExtractor.on("resolve", (item: QueueItem) => {
       logger.debug(`Item resolved: ${item.original_url}`);
       this.items.push(item);
       if (this.queueState.status === "idle") {
         this.queueState.status = "playing";
-        this._onIdle();
+        this._onPlayerIdle();
       }
     });
   }
@@ -186,6 +235,8 @@ class Queue extends EventEmitter {
     this.items = [];
     this.player.stop(true);
     this.resource = null;
+    // Reset the whole state this is important because
+    //  the pointer setter and the player error handler read it.
     this.queueState = {
       status: "idle",
       errored: false,
@@ -196,6 +247,8 @@ class Queue extends EventEmitter {
         tries: 0,
       },
     };
+    // Assign the backing field directly. The setter can redirect to
+    // currentIndex during replay, or ignore the write in current loop mode.
     this._pointer = 0;
     this.emit("queueEnd");
   }
@@ -215,7 +268,7 @@ class Queue extends EventEmitter {
       if (this.player.state.status === AudioPlayerStatus.Playing) {
         this.player.stop(true);
       } else if (this.player.state.status === AudioPlayerStatus.Idle) {
-        this._onIdle();
+        this._onPlayerIdle();
       }
     }
   }
@@ -255,13 +308,17 @@ class Queue extends EventEmitter {
   async playNext() {
     // The entry points to this function are limited to these:
     // Calls from within this function, whenever there is an error loading the url
-    // _onIdle calls
+    // _onPlayerIdle calls
     // the play initial event
 
     try {
-      this.queueState;
       let item = this.items[this.pointer];
-      const url = this.items[this.pointer].stream_url;
+      const url = item.stream_url;
+      // stream_url is null for playlist items that were never resolved.
+      // Throw the same error the extractor uses so the branch below handles it.
+      if (!url) {
+        throw new InvalidStreamUrl(`Invalid stream URL: ${url}`, url);
+      }
       let resource = await this.urlExtractor.createAudioResource(url);
 
       logger.debug(
@@ -297,6 +354,7 @@ class Queue extends EventEmitter {
         this.urlExtractor._resolveItems(items_to_resolve);
       } else {
         //show stack
+        // catch gives unknown under strict, so narrow before reading stack.
         if (error instanceof Error) {
           logger.error(`Error playing next item: ${error.stack}`);
           logger.error(`Error playing next item: ${error.message}`);
@@ -308,6 +366,8 @@ class Queue extends EventEmitter {
   }
   // Add an item to the queue
   // Could be a single URL or an array of URLs
+  // urls matches requestItems, await is required so
+  // extraction errors reach the caller instead of becoming unhandled.
   async enqueue(urls: string | string[]) {
     await this.urlExtractor.requestItems(urls);
   }
@@ -329,7 +389,7 @@ class Queue extends EventEmitter {
     //TODO: When we add a remove from playlist we will need to handle queue empty
     return;
   }
-  _onIdle() {
+  _onPlayerIdle() {
     logger.debug("Player is idle! Event was fired");
     // subscribers is private in @discordjs/voice. playable is the public
     // getter for the same list, filtered to connections that are actually
