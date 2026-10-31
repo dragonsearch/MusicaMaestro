@@ -157,7 +157,7 @@ class Queue extends EventEmitter {
   }
 
   replay() {
-    if (this.queueState.last_replayed != this.currentIndex) {
+    if (this.queueState.replay.last_replayed !== this.currentIndex) {
       // The replay feature is added by using a new state: replayed.
       // We need a song-> n errors map.
       // We should abstract functionality and refactor code into classes
